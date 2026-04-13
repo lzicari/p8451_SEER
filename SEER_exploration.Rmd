@@ -17,9 +17,9 @@ raw_df <- read_delim("SEER_brain_2018-22.txt",
   clean_names() 
 
 # printing frequency table of all variables
-for (col_name in names(df_clean)) {
+for (col_name in names(raw_df)) {
   cat("\n--- Variable:", col_name, "---\n")
-  print(table(df_clean[[col_name]], useNA = "always"))
+  print(table(raw_df[[col_name]], useNA = "always"))
 }
 ```
 
@@ -27,7 +27,7 @@ for (col_name in names(df_clean)) {
 
 ```{r}
 # Comprehensive Cleaning and Standardization of NAs
-df_final <- raw_df %>%
+df_clean <- raw_df %>%
   # Numeric Outliers and Missingness
   mutate(
     # Fix Survival Months (9999 is Unknown)
@@ -87,12 +87,12 @@ df_final <- raw_df %>%
   select(-c(site_recode_icd_o_3_who_2008))
 
 # Verification
-glimpse(df_final)
-colSums(is.na(df_final))
+glimpse(df_clean)
+colSums(is.na(df_clean))
 
-for (col_name in names(df_final)) {
+for (col_name in names(df_clean)) {
   cat("\n--- Variable:", col_name, "---\n")
-  print(table(df_final[[col_name]], useNA = "always"))
+  print(table(df_clean[[col_name]], useNA = "always"))
 }
 ```
 
@@ -109,7 +109,7 @@ my guess is one year would be a good but will look at sample size changes and di
 
 For 2 year survival time
 ```{r}
-df_ml <- df_final %>%
+df_2yr_S <- df_clean %>%
   # Drop rows with missing survival outcome
   filter(!is.na(survival_months)) %>%
   
@@ -122,14 +122,14 @@ df_ml <- df_final %>%
     survived_24m = factor(ifelse(survival_months >= 24, "Yes", "No"), levels = c("No", "Yes")))
 
 # Check new sample size and balance
-nrow(df_ml)
-table(df_ml$survived_24m)
+nrow(df_2yr_S)
+table(df_2yr_S$survived_24m)
 ```
 
 
 For 1 year survival time
 ```{r}
-df_ml_12m <- df_final %>%
+df_1yr_S <- df_clean %>%
   # Drop rows with missing survival outcome
   filter(!is.na(survival_months)) %>%
   
@@ -143,8 +143,8 @@ df_ml_12m <- df_final %>%
   )
 
 # Check new sample size and balance
-nrow(df_ml_12m)
-table(df_ml_12m$survived_12m)
+nrow(df_1yr_S)
+table(df_1yr_S$survived_12m)
 ```
 
 Since the 12 month is more balanced and keeps more of the sample its probably better
