@@ -1,0 +1,95 @@
+---
+title: "SEER exploration"
+output: html_document
+date: "2026-04-12"
+---
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(forcats)
+
+# Load Data
+raw_df <- read_delim("SEER_brain_2018-22.txt", 
+                    delim = "\t", 
+                    escape_double = FALSE, 
+                    trim_ws = TRUE) %>%
+  clean_names() 
+
+# printing frequency table of all variables
+for (col_name in names(df_clean)) {
+  cat("\n--- Variable:", col_name, "---\n")
+  print(table(df_clean[[col_name]], useNA = "always"))
+}
+```
+
+```{r}
+# Comprehensive Cleaning and Standardization of NAs
+df_final <- raw_df %>%
+  # Numeric Outliers and Missingness
+  mutate(
+    # Fix Survival Months (9999 is Unknown)
+    survival_months = as.numeric(ifelse(survival_months >= 9999, NA, survival_months)),
+    
+    # Fix Time to Treatment (999 is Unknown)
+    time_from_diagnosis_to_treatment_in_days_recode = na_if(time_from_diagnosis_to_treatment_in_days_recode, 999),
+    
+    # Convert Age to Continuous using the confirmed 5-year midpoint math
+    # 19 was confirmed as 90+, so this creates a linear scale
+    age_continuous = (age_recode_with_1_year_olds_and_90 * 5) + 2.5
+  ) %>%
+  
+  # Filter Out Missing Outcome (still need to determine this)
+  # filter(!is.na(survival_months)) %>%
+  
+  # Targeted NA Standardization for Categorical Codes
+  mutate(
+    # Target 9s (Unknown) for specific variables
+    across(c(race_recode_white_black_other, radiation_recode, 
+             rx_summ_surg_rad_seq, rx_summ_systemic_sur_seq_2007, 
+             reason_no_cancer_directed_surgery, diagnostic_confirmation, 
+             combined_summary_stage_with_expanded_regional_codes_2004, 
+             grade_clinical_2018), ~na_if(., 9)),
+    
+    # Target 99s and 126s (Unknown/Blank)
+    across(c(brain_molecular_markers_2018, median_household_income_inflation_adj_to_2023, 
+             rural_urban_continuum_code), ~na_if(., 99)),
+    across(c(brain_molecular_markers_2018), ~na_if(., 126)),
+    
+    # Target 7s and 8s (Ambiguous treatment status)
+    across(c(radiation_recode, reason_no_cancer_directed_surgery), 
+           ~ifelse(. %in% c(7, 8), NA, .)),
+    
+    # Targeted sweep for Molecular Markers (85=N/A, 87=Not documented)
+    brain_molecular_markers_2018 = ifelse(brain_molecular_markers_2018 %in% c(85, 87), NA, brain_molecular_markers_2018)
+  ) %>%
+  
+  # Factor Conversion 
+  # Turn NAs into an explicit "Unknown" category to avoid selection bias by just removing all NAs (should discuss this with proff)
+  mutate(
+    grade_factor = fct_na_value_to_level(factor(grade_clinical_2018), level = "Unknown"),
+    molecular_factor = fct_na_value_to_level(factor(brain_molecular_markers_2018), level = "Unknown"),
+    stage_factor = fct_na_value_to_level(factor(combined_summary_stage_with_expanded_regional_codes_2004), level = "Unknown"),
+    radiation_factor = fct_na_value_to_level(factor(radiation_recode), level = "Unknown"),
+    race_factor = fct_na_value_to_level(factor(race_recode_white_black_other), level = "Unknown"),
+    
+    # Binary/Simple Factors
+    sex_factor = factor(sex),
+    chemo_factor = factor(chemotherapy_recode_yes_no_unk),
+    surgery_performed = factor(ifelse(reason_no_cancer_directed_surgery == 0, 1, 0))
+  ) %>%
+  
+  # Remove the constant columns (brain cancer ICD code)
+  select(-c(site_recode_icd_o_3_who_2008))
+
+# Verification
+glimpse(df_final)
+colSums(is.na(df_final))
+```
+
+What kind of question should we assess: 
+We could do a prediction on Continuous outcome
+How many months of life can a patient expect to gain from surgical intervention, given their specific molecular markers and age?
+OR a classification model 
+Can we predict the probability of X-year survival based on a patient's molecular profile and socioeconomic status? (Make a binary survival time of Yes or No)
+
