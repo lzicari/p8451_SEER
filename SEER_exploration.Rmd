@@ -23,6 +23,8 @@ for (col_name in names(df_clean)) {
 }
 ```
 
+## Cleaning and factoring
+
 ```{r}
 # Comprehensive Cleaning and Standardization of NAs
 df_final <- raw_df %>%
@@ -65,7 +67,7 @@ df_final <- raw_df %>%
   ) %>%
   
   # Factor Conversion 
-  # Turn NAs into an explicit "Unknown" category to avoid selection bias by just removing all NAs (should discuss this with proff)
+  # Turn NAs into an explicit "Unknown" category for factored variables to avoid selection bias by just removing all NAs (should discuss this with proff)
   mutate(
     grade_factor = fct_na_value_to_level(factor(grade_clinical_2018), level = "Unknown"),
     molecular_factor = fct_na_value_to_level(factor(brain_molecular_markers_2018), level = "Unknown"),
@@ -76,15 +78,22 @@ df_final <- raw_df %>%
     # Binary/Simple Factors
     sex_factor = factor(sex),
     chemo_factor = factor(chemotherapy_recode_yes_no_unk),
-    surgery_performed = factor(ifelse(reason_no_cancer_directed_surgery == 0, 1, 0))
+    surgery_performed = fct_na_value_to_level(
+      factor(ifelse(reason_no_cancer_directed_surgery == 0, 1, 0)), 
+      level = "Unknown"
+    )
   ) %>%
-  
   # Remove the constant columns (brain cancer ICD code)
   select(-c(site_recode_icd_o_3_who_2008))
 
 # Verification
 glimpse(df_final)
 colSums(is.na(df_final))
+
+for (col_name in names(df_final)) {
+  cat("\n--- Variable:", col_name, "---\n")
+  print(table(df_final[[col_name]], useNA = "always"))
+}
 ```
 
 What kind of question should we assess: 
@@ -92,4 +101,60 @@ We could do a prediction on Continuous outcome
 How many months of life can a patient expect to gain from surgical intervention, given their specific molecular markers and age?
 OR a classification model 
 Can we predict the probability of X-year survival based on a patient's molecular profile and socioeconomic status? (Make a binary survival time of Yes or No)
+
+## Classification question 
+
+we need to figure out what a good cutoff would be.
+my guess is one year would be a good but will look at sample size changes and distribution of survival outcome between 1 and 2 years.
+
+For 2 year survival time
+```{r}
+df_ml <- df_final %>%
+  # Drop rows with missing survival outcome
+  filter(!is.na(survival_months)) %>%
+  
+  # Exclude Uncertain cases: 
+  # People alive but followed for less than 12 months
+  filter(!(vital_status_recode_study_cutoff_used == 1 & survival_months < 24)) %>%
+  
+  # Create 24-Month Outcome Variable
+  mutate(
+    survived_24m = factor(ifelse(survival_months >= 24, "Yes", "No"), levels = c("No", "Yes")))
+
+# Check new sample size and balance
+nrow(df_ml)
+table(df_ml$survived_24m)
+```
+
+
+For 1 year survival time
+```{r}
+df_ml_12m <- df_final %>%
+  # Drop rows with missing survival outcome
+  filter(!is.na(survival_months)) %>%
+  
+  # Exclude Uncertain cases: 
+  # People alive but followed for less than 12 months
+  filter(!(vital_status_recode_study_cutoff_used == 1 & survival_months < 12)) %>%
+  
+  # Create 12-Month Outcome Variable
+  mutate(
+    survived_12m = factor(ifelse(survival_months >= 12, "Yes", "No"), levels = c("No", "Yes"))
+  )
+
+# Check new sample size and balance
+nrow(df_ml_12m)
+table(df_ml_12m$survived_12m)
+```
+
+Since the 12 month is more balanced and keeps more of the sample its probably better
+
+
+## Looking into amount of surgeries by 12 month survival status
+```{r}
+# Cross-tab of Surgery vs. 12-Month Survival
+table(df_ml_12m$surgery_performed, df_ml_12m$survived_12m, useNA = "always")
+
+prop.table(table(df_ml_12m$surgery_performed, df_ml_12m$survived_12m), 1) * 100
+```
 
