@@ -66,17 +66,11 @@ df_clean <- raw_df %>%
   # Factor Conversion 
   # Turn NAs into an explicit "Unknown" category for factored variables to avoid selection bias by just removing all NAs (should discuss this with proff)
   mutate(
-    grade_factor = factor(grade_clinical_2018) %>%
-      fct_recode(
-        "WHO Grade 1" = "1",
-        "WHO Grade 2" = "2",
-        "WHO Grade 3" = "3",
-        "WHO Grade 4" = "4",
-        "B-Cell/Lymphoma" = "11", 
-        "T-Cell/Lymphoma" = "12",
-        "NK-Cell/Lymphoma" = "13",
-        "Low Grade (L)"   = "15",
-        "High Grade (H)"  = "16"
+  grade_factor = factor(grade_clinical_2018) %>%
+      fct_collapse(
+        "Low Grade"  = c("1", "2", "15"),
+        "High Grade" = c("3", "4", "16"),
+        "Lymphoma"   = c("11", "12", "13")
       ) %>%
       fct_na_value_to_level(level = "Unknown"),
     
