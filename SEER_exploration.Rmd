@@ -259,6 +259,6 @@ prop.table(table(df_1yr_S$surgery_performed, df_1yr_S$survived_12m), 1) * 100
 
 Can we predict 1 year survival probability using molecular and SES status
 To what extent do molecular biomarkers and SES factors predict 1 year survival in patient with brain cancers?
-We could make a model with just the biological factors and compare performance to a model that includes the SES factors as well (median household income and rural vs urban) and see how performance changes if at all. 
+We could make a model with just the biological factors and compare performance to a model that includes the SES factors as well (median household income, rural vs urban, time to treatment?) and see how performance changes if at all. 
 
 
