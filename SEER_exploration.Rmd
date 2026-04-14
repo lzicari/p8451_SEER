@@ -16,6 +16,8 @@ raw_df <- read_delim("SEER_brain_2018-22.txt",
                     trim_ws = TRUE) %>%
   clean_names() 
 
+glimpse(raw_df)
+
 # printing frequency table of all variables
 for (col_name in names(raw_df)) {
   cat("\n--- Variable:", col_name, "---\n")
@@ -171,22 +173,27 @@ df_clean <- raw_df %>%
   
   # Remove old variables
 select(-c(site_recode_icd_o_3_who_2008, 
-            rural_urban_continuum_code, 
-            median_household_income_inflation_adj_to_2023,
-            diagnostic_confirmation,
-            sex, 
+           age_recode_with_1_year_olds_and_90,
+            grade_clinical_2018,
+            brain_molecular_markers_2018,
+            combined_summary_stage_with_expanded_regional_codes_2004,
+            radiation_recode,
+            race_recode_white_black_other,
+            sex,
             chemotherapy_recode_yes_no_unk,
-            reason_no_cancer_directed_surgery)) 
+            reason_no_cancer_directed_surgery,
+            histology_recode_broad_groupings,
+            primary_site_labeled))
+```
 
-# Verification
+```{r}
 glimpse(df_clean)
-colSums(is.na(df_clean))
-
 for (col_name in names(df_clean)) {
   cat("\n--- Variable:", col_name, "---\n")
   print(table(df_clean[[col_name]], useNA = "always"))
 }
 ```
+
 
 What kind of question should we assess: 
 We could do a prediction on Continuous outcome
@@ -249,4 +256,9 @@ table(df_1yr_S$surgery_performed, df_1yr_S$survived_12m, useNA = "always")
 
 prop.table(table(df_1yr_S$surgery_performed, df_1yr_S$survived_12m), 1) * 100
 ```
+
+Can we predict 1 year survival probability using molecular and SES status
+To what extent do molecular biomarkers and SES factors predict 1 year survival in patient with brain cancers?
+We could make a model with just the biological factors and compare performance to a model that includes the SES factors as well (median household income and rural vs urban) and see how performance changes if at all. 
+
 
