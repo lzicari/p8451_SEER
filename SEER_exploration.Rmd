@@ -78,6 +78,8 @@ df_clean <- raw_df %>%
     # Binary/Simple Factors
     sex_factor = factor(sex),
     chemo_factor = factor(chemotherapy_recode_yes_no_unk),
+    histology_factor = fct_na_value_to_level(factor(histology_recode_broad_groupings), level = "Unknown"),
+    primary_site_factor = fct_na_value_to_level(factor(primary_site_labeled), level = "Unknown"),
     surgery_performed = fct_na_value_to_level(
       factor(ifelse(reason_no_cancer_directed_surgery == 0, 1, 0)), 
       level = "Unknown"
@@ -153,8 +155,8 @@ Since the 12 month is more balanced and keeps more of the sample its probably be
 ## Looking into amount of surgeries by 12 month survival status
 ```{r}
 # Cross-tab of Surgery vs. 12-Month Survival
-table(df_ml_12m$surgery_performed, df_ml_12m$survived_12m, useNA = "always")
+table(df_1yr_S$surgery_performed, df_1yr_S$survived_12m, useNA = "always")
 
-prop.table(table(df_ml_12m$surgery_performed, df_ml_12m$survived_12m), 1) * 100
+prop.table(table(df_1yr_S$surgery_performed, df_1yr_S$survived_12m), 1) * 100
 ```
 
