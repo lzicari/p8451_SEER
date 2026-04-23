@@ -10,7 +10,7 @@ library(janitor)
 library(forcats)
 
 # Load Data
-raw_df <- read_delim("SEER_brain_2018-22.txt", 
+raw_df <- read_delim("SEER_brain_full.txt", 
                     delim = "\t", 
                     escape_double = FALSE, 
                     trim_ws = TRUE) %>%
