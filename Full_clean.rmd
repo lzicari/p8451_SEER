@@ -1,0 +1,531 @@
+---
+title: "Full_Code"
+author: "Sukhman Parhar"
+date: "2026-04-23"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(forcats)
+library(labelled)
+library(stringr)
+library(tidyverse)
+library(janitor)
+
+data <- read_delim("SEER_brain_full.txt", 
+                    delim = "\t", 
+                    escape_double = FALSE, 
+                    trim_ws = TRUE) %>%
+  clean_names() 
+
+# RENAME VARIABLES (use your dictionary)
+
+```
+
+```{r}
+df_clean <- data
+
+# names(df_clean) <- c(
+#   "age_recode_with_1_year_olds_and_90",
+#   "race_recode_white_black_other",
+#   "sex",
+#   "year_of_diagnosis",
+#   "site_recode_icd_o_3_who_2008",
+#   "radiation_recode",
+#   "chemotherapy_recode_yes_no_unk",
+#   "rx_summ_surg_prim_site_1998",
+#   "time_from_diagnosis_to_treatment_in_days_recode",
+#   "rx_summ_surg_rad_seq",
+#   "rx_summ_systemic_sur_seq_2007",
+#   "reason_no_cancer_directed_surgery",
+#   "median_household_income_inflation_adj_to_2023",
+#   "rural_urban_continuum_code",
+#   "survival_months",
+#   "vital_status_recode_study_cutoff_used",
+#   "seer_cause_specific_death_classification",
+#   "brain_molecular_markers_2018",
+#   "diagnostic_confirmation",
+#   "combined_summary_stage_with_expanded_regional_codes_2004",
+#   "grade_clinical_2018",
+#   "histology_recode_broad_groupings",
+#   "primary_site_labeled",
+#   "grade_pathological_2018",
+#   "icd_o_3_hist_behav",
+#   "icd_o_3_hist_behav_malignant",
+#   "patient_id",
+#   "behavior_code_icd_o_3",
+#   "seer_brain_and_cns_recode",
+#   "radiation_to_brain_or_cns_recode_1988_1997",
+#   "eod_primary_tumor_recode_2018",
+#   "tumor_size_over_time_recode_1988",
+#   "tumor_size_summary_2016",
+#   "regional_nodes_examined_1988",
+#   "regional_nodes_positive_1988",
+#   "cod_to_site_recode",
+#   "seer_other_cause_of_death_classification",
+#   "survival_months_flag",
+#   "total_number_of_in_situ_malignant_tumors",
+#   "total_number_of_benign_borderline_tumors",
+#   "marital_status_at_diagnosis"
+# )
+
+
+# BASIC NUMERIC CLEANING
+
+df_clean <- df_clean %>%
+  mutate(
+    survival_months = suppressWarnings(as.numeric(survival_months)),
+    time_from_diagnosis_to_treatment_in_days_recode =
+      suppressWarnings(as.numeric(time_from_diagnosis_to_treatment_in_days_recode)),
+    year_of_diagnosis = suppressWarnings(as.numeric(year_of_diagnosis)),
+    tumor_size_summary_2016 = suppressWarnings(as.numeric(tumor_size_summary_2016)),
+    regional_nodes_examined_1988 =
+      suppressWarnings(as.numeric(regional_nodes_examined_1988)),
+    regional_nodes_positive_1988 =
+      suppressWarnings(as.numeric(regional_nodes_positive_1988))
+  )
+
+# Clean missing
+df_clean <- df_clean %>%
+  mutate(
+    # survival_months: 9999 means unknown
+    survival_months = ifelse(survival_months >= 9999, NA, survival_months),
+
+    # time_to_treatment: 999 means unknown
+    time_from_diagnosis_to_treatment_in_days_recode =
+      na_if(time_from_diagnosis_to_treatment_in_days_recode, 999),
+
+    # tumor_size_summary_2016 often uses 999 as unknown
+    tumor_size_summary_2016 = na_if(tumor_size_summary_2016, 999),
+
+    # nodes often use 99 as unknown
+    regional_nodes_examined_1988 = na_if(regional_nodes_examined_1988, 99),
+    regional_nodes_positive_1988 = na_if(regional_nodes_positive_1988, 99)
+  ) %>%
+  mutate(
+    across(
+      c(
+        race_recode_white_black_other,
+        radiation_recode,
+        rx_summ_surg_rad_seq,
+        rx_summ_systemic_sur_seq_2007,
+        reason_no_cancer_directed_surgery,
+        diagnostic_confirmation,
+        combined_summary_stage_with_expanded_regional_codes_2004,
+        grade_clinical_2018,
+        grade_pathological_2018,
+        marital_status_at_diagnosis
+      ),
+      ~ na_if(., 9)
+    )
+  ) %>%
+  mutate(
+    across(
+      c(
+        brain_molecular_markers_2018,
+        median_household_income_inflation_adj_to_2023,
+        rural_urban_continuum_code
+      ),
+      ~ na_if(., 99)
+    )
+  ) %>%
+  mutate(
+    brain_molecular_markers_2018 = na_if(brain_molecular_markers_2018, 126)
+  )
+
+# Check with survival flag 
+# SURVIVAL OUTCOME VARIABLES
+df_clean <- df_clean %>%
+  mutate(
+    time = survival_months,
+    event = case_when(
+      vital_status_recode_study_cutoff_used == 1 ~ 1,
+      vital_status_recode_study_cutoff_used == 0 ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+# AGE FACTOR
+df_clean <- df_clean %>%
+  mutate(
+    age_factor = factor(
+      age_recode_with_1_year_olds_and_90,
+      levels = 0:19,
+      ordered = TRUE
+    ) %>%
+      fct_recode(
+        "00 years" = "0",
+        "01-04 years" = "1",
+        "05-09 years" = "2",
+        "10-14 years" = "3",
+        "15-19 years" = "4",
+        "20-24 years" = "5",
+        "25-29 years" = "6",
+        "30-34 years" = "7",
+        "35-39 years" = "8",
+        "40-44 years" = "9",
+        "45-49 years" = "10",
+        "50-54 years" = "11",
+        "55-59 years" = "12",
+        "60-64 years" = "13",
+        "65-69 years" = "14",
+        "70-74 years" = "15",
+        "75-79 years" = "16",
+        "80-84 years" = "17",
+        "85-89 years" = "18",
+        "90+ years" = "19"
+      )
+  )
+
+# Drop below 18
+# DEMOGRAPHIC FACTORS
+df_clean <- df_clean %>%
+  mutate(
+    race_factor = factor(race_recode_white_black_other) %>%
+      fct_recode(
+        "White" = "1",
+        "Black" = "2",
+        "Other" = "3"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    sex_factor = factor(sex) %>%
+      fct_recode(
+        "Male" = "1",
+        "Female" = "2"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    marital_status_factor = factor(marital_status_at_diagnosis) %>%
+      fct_recode(
+        "Single" = "1",
+        "Married" = "2",
+        "Separated" = "3",
+        "Divorced" = "4",
+        "Widowed" = "5",
+        "Unmarried or Domestic Partner" = "6"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown")
+  )
+
+
+# TREATMENT FACTORS
+
+df_clean <- df_clean %>%
+  mutate(
+    radiation_factor = factor(radiation_recode) %>%
+      fct_recode(
+        "None" = "0",
+        "Beam Radiation" = "1",
+        "Radioactive Implants" = "2",
+        "Radioisotopes" = "5",
+        "Refused" = "7",
+        "Recommended, Unknown if Given" = "8"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    radiation_binary = case_when(
+      radiation_recode == 1 ~ "Yes",
+      radiation_recode %in% c(0, 2, 5, 7, 8) ~ "No/Other",
+      TRUE ~ "Unknown"
+    ),
+    radiation_binary = factor(radiation_binary,
+                              levels = c("No/Other", "Yes", "Unknown")),
+
+    chemo_factor = factor(chemotherapy_recode_yes_no_unk) %>%
+      fct_recode(
+        "No/Unknown" = "0",
+        "Yes" = "1"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    surgery_performed = case_when(
+      reason_no_cancer_directed_surgery == 0 ~ "Surgery Performed",
+      reason_no_cancer_directed_surgery %in% c(1, 2, 5, 6, 7, 8) ~ "No Surgery",
+      TRUE ~ "Unknown"
+    ),
+    surgery_performed = factor(
+      surgery_performed,
+      levels = c("Surgery Performed", "No Surgery", "Unknown")
+    ),
+
+    surgery_sequence_factor = factor(rx_summ_surg_rad_seq) %>%
+      fct_recode(
+        "No Radiation and/or No Surgery" = "0",
+        "Radiation Before Surgery" = "2",
+        "Radiation After Surgery" = "3",
+        "Intraoperative Radiation" = "4",
+        "Intraoperative + Other Radiation" = "5",
+        "Surgery Both Before and After Radiation" = "6"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    systemic_sequence_factor = factor(rx_summ_systemic_sur_seq_2007) %>%
+      fct_recode(
+        "No Systemic Therapy and/or No Surgery" = "0",
+        "Systemic Therapy Before Surgery" = "2",
+        "Systemic Therapy After Surgery" = "3",
+        "Systemic Therapy Both Before and After Surgery" = "4"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown")
+  )
+
+
+# TUMOR / DISEASE FACTORS
+
+df_clean <- df_clean %>%
+  mutate(
+    stage_factor = factor(combined_summary_stage_with_expanded_regional_codes_2004) %>%
+      fct_recode(
+        "Localized" = "1",
+        "Regional" = "2",
+        "Distant" = "7",
+        "Benign" = "8"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    diagnostic_confirmation_factor = factor(diagnostic_confirmation) %>%
+      fct_recode(
+        "Positive Histology" = "1",
+        "Positive Cytology" = "2",
+        "Positive Laboratory Test/Marker Study" = "4",
+        "Direct Visualization without Microscopic Confirmation" = "5",
+        "Radiography without Microscopic Confirmation" = "6",
+        "Clinical Diagnosis Only" = "7",
+        "Unknown" = "8"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    histology_factor = factor(histology_recode_broad_groupings) %>%
+      fct_collapse(
+        "Glioma" = c("35"),
+        "Germ Cell Neoplasm" = c("25"),
+        "Neuroepitheliomatous Neoplasm" = c("36"),
+        "Fibromatous Neoplasm" = c("17"),
+        "Other Malignant" = c("0", "2", "15", "16", "20", "21", "28", "30", "32", "34", "38")
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    primary_site_factor = factor(primary_site_labeled) %>%
+      fct_recode(
+        "Cerebrum NOS" = "710",
+        "Frontal Lobe" = "711",
+        "Temporal Lobe" = "712",
+        "Parietal Lobe" = "713",
+        "Occipital Lobe" = "714",
+        "Ventricle" = "715",
+        "Cerebellum" = "716",
+        "Brain Stem" = "717",
+        "Overlapping Lesion of Brain" = "718",
+        "Brain NOS" = "719"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown")
+  )
+
+
+# GRADE
+# Use pathological first, clinical if path missing
+
+df_clean <- df_clean %>%
+  mutate(
+    grade_combined_raw = coalesce(grade_pathological_2018, grade_clinical_2018),
+
+    grade_factor = factor(grade_combined_raw) %>%
+      fct_recode(
+        "Grade I" = "1",
+        "Grade II" = "2",
+        "Grade III" = "3",
+        "Grade IV" = "4",
+        "Cell Type Not Determined, Not Stated or Not Applicable" = "9"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    grade_binary = case_when(
+      grade_combined_raw %in% c(1, 2, 15) ~ "Low Grade",
+      grade_combined_raw %in% c(3, 4, 16) ~ "High Grade",
+      TRUE ~ "Unknown"
+    ),
+    grade_binary = factor(grade_binary,
+                          levels = c("Low Grade", "High Grade", "Unknown"))
+  )
+
+
+# MOLECULAR MARKERS
+
+df_clean <- df_clean %>%
+  mutate(
+    molecular_factor = factor(brain_molecular_markers_2018) %>%
+      fct_recode(
+        "Astrocytoma, IDH-mutant, Grade II" = "1",
+        "Astrocytoma, IDH-wildtype, Grade II" = "2",
+        "Astrocytoma, IDH-mutant, Grade III" = "3",
+        "Astrocytoma, IDH-wildtype, Grade III" = "4",
+        "Glioblastoma, IDH-wildtype" = "5",
+        "Oligodendroglioma, IDH-mutant and 1p/19q-codeleted" = "6",
+        "Oligodendroglioma, Grade III, IDH-mutant and 1p/19q-codeleted" = "7",
+        "Medulloblastoma / Other" = "8",
+        "Embryonal / Other" = "9",
+        "Not Applicable" = "85",
+        "Test Ordered, Results Not in Chart" = "87"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    molecular_collapsed = case_when(
+      brain_molecular_markers_2018 %in% c(1, 3) ~ "Astrocytoma IDH-mutant",
+      brain_molecular_markers_2018 %in% c(2, 4, 5) ~ "IDH-wildtype",
+      brain_molecular_markers_2018 %in% c(6, 7) ~ "Oligodendroglioma IDH-mutant 1p19q-codeleted",
+      brain_molecular_markers_2018 %in% c(8, 9) ~ "Other Molecular Group",
+      brain_molecular_markers_2018 %in% c(85, 87) ~ "Not Applicable/Pending",
+      is.na(brain_molecular_markers_2018) ~ "Unknown",
+      TRUE ~ "Unknown"
+    ),
+    molecular_collapsed = factor(
+      molecular_collapsed,
+      levels = c(
+        "Astrocytoma IDH-mutant",
+        "IDH-wildtype",
+        "Oligodendroglioma IDH-mutant 1p19q-codeleted",
+        "Other Molecular Group",
+        "Not Applicable/Pending",
+        "Unknown"
+      )
+    )
+  )
+
+
+# SOCIOECONOMIC GEOGRAPHIC VARIABLES
+
+df_clean <- df_clean %>%
+  mutate(
+    income_factor = factor(median_household_income_inflation_adj_to_2023) %>%
+      fct_recode(
+        "<$35,000" = "1",
+        "$35,000-$39,999" = "2",
+        "$40,000-$44,999" = "3",
+        "$45,000-$49,999" = "4",
+        "$50,000-$54,999" = "5",
+        "$55,000-$59,999" = "6",
+        "$60,000-$64,999" = "7",
+        "$65,000-$69,999" = "8",
+        "$70,000-$74,999" = "9",
+        "$75,000+" = "10"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    income_binary = case_when(
+      median_household_income_inflation_adj_to_2023 %in% 1:9 ~ "<$75,000",
+      median_household_income_inflation_adj_to_2023 == 10 ~ "$75,000+",
+      TRUE ~ "Unknown"
+    ),
+    income_binary = factor(income_binary,
+                           levels = c("<$75,000", "$75,000+", "Unknown")),
+
+    rurality_factor = factor(rural_urban_continuum_code) %>%
+      fct_recode(
+        "Metro 1M+" = "1",
+        "Metro 250K-1M" = "2",
+        "Metro <250K" = "3",
+        "Urban Adjacent" = "4",
+        "Urban Nonadjacent" = "5",
+        "Rural Adjacent" = "6",
+        "Rural Nonadjacent" = "7",
+        "Completely Rural or <2,500 Urban Population, Adjacent" = "8",
+        "Completely Rural or <2,500 Urban Population, Nonadjacent" = "9"
+      ) %>%
+      fct_na_value_to_level(level = "Unknown"),
+
+    rurality_binary = case_when(
+      rural_urban_continuum_code %in% c(1, 2, 3) ~ "Metropolitan",
+      rural_urban_continuum_code %in% c(4, 5, 6, 7, 8, 9) ~ "Non-metropolitan",
+      TRUE ~ "Unknown"
+    ),
+    rurality_binary = factor(rurality_binary,
+                             levels = c("Metropolitan", "Non-metropolitan", "Unknown"))
+  )
+
+
+# LABELS
+
+df_clean <- set_variable_labels(
+  df_clean,
+  age_factor = "Age at diagnosis",
+  #age_group_collapsed = "Collapsed age group",
+  race_factor = "Race",
+  sex_factor = "Sex",
+  marital_status_factor = "Marital status at diagnosis",
+  year_of_diagnosis = "Year of diagnosis",
+  radiation_factor = "Radiation recode",
+  radiation_binary = "Radiation yes/no",
+  chemo_factor = "Chemotherapy recode",
+  surgery_performed = "Cancer-directed surgery performed",
+  surgery_sequence_factor = "Surgery/radiation sequence",
+  systemic_sequence_factor = "Systemic therapy/surgery sequence",
+  income_factor = "Median household income, inflation adjusted to 2023",
+  income_binary = "Income binary",
+  rurality_factor = "Rural-Urban Continuum Code",
+  rurality_binary = "Rurality binary",
+  time = "Survival time in months",
+  event = "Death indicator",
+  seer_cause_specific_death_classification = "SEER cause-specific death classification",
+  molecular_factor = "Brain molecular markers (2018+)",
+  molecular_collapsed = "Collapsed molecular marker group",
+  diagnostic_confirmation_factor = "Diagnostic confirmation",
+  stage_factor = "Combined summary stage",
+  grade_factor = "Tumor grade",
+  grade_binary = "Tumor grade binary",
+  histology_factor = "Histology broad grouping",
+  primary_site_factor = "Primary site",
+  tumor_size_summary_2016 = "Tumor size summary",
+  regional_nodes_examined_1988 = "Regional nodes examined",
+  regional_nodes_positive_1988 = "Regional nodes positive"
+)
+
+# df_clean <- df_clean %>%
+#   select(
+#     -age_recode_with_1_year_olds_and_90,
+#     -race_recode_white_black_other,
+#     -sex,
+#     -radiation_recode,
+#     -chemotherapy_recode_yes_no_unk,
+#     -reason_no_cancer_directed_surgery,
+#     -rx_summ_surg_rad_seq,
+#     -rx_summ_systemic_sur_seq_2007,
+#     -brain_molecular_markers_2018,
+#     -diagnostic_confirmation,
+#     -combined_summary_stage_with_expanded_regional_codes_2004,
+#     -grade_clinical_2018,
+#     -grade_pathological_2018,
+#     -histology_recode_broad_groupings,
+#     -primary_site_labeled,
+#     -median_household_income_inflation_adj_to_2023,
+#     -rural_urban_continuum_code,
+#     -marital_status_at_diagnosis
+#   )
+
+
+# ANALYSIS-READY DATASET
+
+analysis_df <- df_clean %>%
+  filter(!is.na(time), time > 0) %>%
+  filter(!is.na(event))
+
+
+# CHECKS
+
+str(df_clean)
+
+table(df_clean$age_factor, useNA = "ifany")
+table(df_clean$race_factor, useNA = "ifany")
+table(df_clean$sex_factor, useNA = "ifany")
+table(df_clean$stage_factor, useNA = "ifany")
+table(df_clean$grade_factor, useNA = "ifany")
+table(df_clean$grade_binary, useNA = "ifany")
+table(df_clean$molecular_factor, useNA = "ifany")
+table(df_clean$molecular_collapsed, useNA = "ifany")
+table(df_clean$radiation_factor, useNA = "ifany")
+table(df_clean$chemo_factor, useNA = "ifany")
+table(df_clean$surgery_performed, useNA = "ifany")
+summary(df_clean$time)
+table(df_clean$event, useNA = "ifany")
+```
