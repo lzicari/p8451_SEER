@@ -1085,6 +1085,405 @@ str(df_clean)</code></pre>
 <pre><code>## 
 ##    0    1 
 ## 5180 3779</code></pre>
+<pre class="r"><code>df_ml &lt;- df_clean %&gt;%
+  mutate(stage_binary = ifelse(stage_factor == &quot;Localized&quot;, &quot;Localized&quot;, &quot;Advanced&quot;),
+         stage_binary = factor(stage_binary))
+
+df_ml &lt;- df_ml %&gt;%
+  filter(!molecular_collapsed %in% c(&quot;Unknown&quot;, &quot;Not Applicable/Pending&quot;)) %&gt;%
+  droplevels()
+
+df_ml &lt;- df_ml %&gt;%
+  filter(!is.na(time))
+
+df_ml &lt;- df_ml %&gt;%
+  mutate(
+    sex_factor = factor(sex_factor),
+    race_factor = factor(race_factor),
+    stage_factor = factor(stage_factor),
+    radiation_binary = factor(radiation_binary),
+    chemo_factor = factor(chemo_factor),
+    surgery_performed = factor(surgery_performed),
+    income_binary = factor(income_binary),
+    rurality_binary = factor(rurality_binary)
+  )
+
+summary(df_ml)</code></pre>
+<pre><code>##  age_recode_with_1_year_olds_and_90 race_recode_white_black_other
+##  Min.   : 0.00                      Min.   :1.000                
+##  1st Qu.:11.00                      1st Qu.:1.000                
+##  Median :13.00                      Median :1.000                
+##  Mean   :12.56                      Mean   :1.209                
+##  3rd Qu.:15.00                      3rd Qu.:1.000                
+##  Max.   :19.00                      Max.   :3.000                
+##                                     NA&#39;s   :28                   
+##       sex        year_of_diagnosis site_recode_icd_o_3_who_2008
+##  Min.   :1.000   Min.   :218       Min.   :63                  
+##  1st Qu.:1.000   1st Qu.:219       1st Qu.:63                  
+##  Median :1.000   Median :220       Median :63                  
+##  Mean   :1.419   Mean   :220       Mean   :63                  
+##  3rd Qu.:2.000   3rd Qu.:221       3rd Qu.:63                  
+##  Max.   :2.000   Max.   :222       Max.   :63                  
+##                                                                
+##  radiation_recode chemotherapy_recode_yes_no_unk rx_summ_surg_prim_site_1998
+##  Min.   :0.000    Min.   :0.0000                 Min.   : 0.0               
+##  1st Qu.:1.000    1st Qu.:0.0000                 1st Qu.:20.0               
+##  Median :1.000    Median :1.0000                 Median :21.0               
+##  Mean   :1.087    Mean   :0.7199                 Mean   :21.7               
+##  3rd Qu.:1.000    3rd Qu.:1.0000                 3rd Qu.:30.0               
+##  Max.   :8.000    Max.   :1.0000                 Max.   :99.0               
+##                                                                             
+##  time_from_diagnosis_to_treatment_in_days_recode rx_summ_surg_rad_seq
+##  Min.   :  0.00                                  Min.   :0.000       
+##  1st Qu.:  0.00                                  1st Qu.:0.000       
+##  Median :  3.00                                  Median :3.000       
+##  Mean   : 11.67                                  Mean   :2.001       
+##  3rd Qu.: 12.00                                  3rd Qu.:3.000       
+##  Max.   :449.00                                  Max.   :7.000       
+##  NA&#39;s   :338                                     NA&#39;s   :2           
+##  rx_summ_systemic_sur_seq_2007 reason_no_cancer_directed_surgery
+##  Min.   :0.000                 Min.   :0.0000                   
+##  1st Qu.:0.000                 1st Qu.:0.0000                   
+##  Median :3.000                 Median :0.0000                   
+##  Mean   :1.922                 Mean   :0.1981                   
+##  3rd Qu.:3.000                 3rd Qu.:0.0000                   
+##  Max.   :7.000                 Max.   :8.0000                   
+##                                NA&#39;s   :2                        
+##  median_household_income_inflation_adj_to_2023 rural_urban_continuum_code
+##  Min.   : 1                                    Min.   : 1.000            
+##  1st Qu.:10                                    1st Qu.: 1.000            
+##  Median :12                                    Median : 1.000            
+##  Mean   :12                                    Mean   : 2.696            
+##  3rd Qu.:15                                    3rd Qu.: 2.000            
+##  Max.   :16                                    Max.   :12.000            
+##  NA&#39;s   :1                                     NA&#39;s   :1                 
+##  survival_months vital_status_recode_study_cutoff_used
+##  Min.   : 0.00   Min.   :0.0000                       
+##  1st Qu.: 3.00   1st Qu.:0.0000                       
+##  Median : 9.00   Median :0.0000                       
+##  Mean   :13.72   Mean   :0.3892                       
+##  3rd Qu.:19.00   3rd Qu.:1.0000                       
+##  Max.   :59.00   Max.   :1.0000                       
+##                                                       
+##  seer_cause_specific_death_classification brain_molecular_markers_2018
+##  Min.   :0.0000                           Min.   :1.000               
+##  1st Qu.:0.0000                           1st Qu.:5.000               
+##  Median :1.0000                           Median :5.000               
+##  Mean   :0.6245                           Mean   :4.713               
+##  3rd Qu.:1.0000                           3rd Qu.:5.000               
+##  Max.   :8.0000                           Max.   :9.000               
+##                                                                       
+##  diagnostic_confirmation
+##  Min.   :1.000          
+##  1st Qu.:1.000          
+##  Median :1.000          
+##  Mean   :1.055          
+##  3rd Qu.:1.000          
+##  Max.   :8.000          
+##  NA&#39;s   :2              
+##  combined_summary_stage_with_expanded_regional_codes_2004 grade_clinical_2018
+##  Min.   :1.000                                            Min.   : 1.000     
+##  1st Qu.:1.000                                            1st Qu.: 4.000     
+##  Median :1.000                                            Median : 4.000     
+##  Mean   :1.215                                            Mean   : 4.499     
+##  3rd Qu.:1.000                                            3rd Qu.: 4.000     
+##  Max.   :8.000                                            Max.   :16.000     
+##  NA&#39;s   :85                                               NA&#39;s   :2814       
+##  histology_recode_broad_groupings primary_site_labeled grade_pathological_2018
+##  Min.   :35                       Min.   :710          Min.   : 1.000         
+##  1st Qu.:35                       1st Qu.:711          1st Qu.: 4.000         
+##  Median :35                       Median :712          Median : 4.000         
+##  Mean   :35                       Mean   :713          Mean   : 3.821         
+##  3rd Qu.:35                       3rd Qu.:713          3rd Qu.: 4.000         
+##  Max.   :35                       Max.   :719          Max.   :16.000         
+##                                                        NA&#39;s   :1026           
+##  icd_o_3_hist_behav icd_o_3_hist_behav_malignant   patient_id      
+##  Min.   :5603       Min.   :5603                 Min.   :    1034  
+##  1st Qu.:5763       1st Qu.:5763                 1st Qu.: 5980190  
+##  Median :5763       Median :5763                 Median :14270639  
+##  Mean   :5743       Mean   :5743                 Mean   :12472432  
+##  3rd Qu.:5763       3rd Qu.:5763                 3rd Qu.:16987261  
+##  Max.   :5915       Max.   :5915                 Max.   :22445526  
+##                                                                    
+##  behavior_code_icd_o_3 seer_brain_and_cns_recode
+##  Min.   :3             Min.   : 1.000           
+##  1st Qu.:3             1st Qu.: 2.000           
+##  Median :3             Median : 2.000           
+##  Mean   :3             Mean   : 2.077           
+##  3rd Qu.:3             3rd Qu.: 2.000           
+##  Max.   :3             Max.   :11.000           
+##                                                 
+##  radiation_to_brain_or_cns_recode_1988_1997 eod_primary_tumor_recode_2018
+##  Min.   :14                                 Min.   : 50                  
+##  1st Qu.:14                                 1st Qu.:100                  
+##  Median :14                                 Median :100                  
+##  Mean   :14                                 Mean   :179                  
+##  3rd Qu.:14                                 3rd Qu.:100                  
+##  Max.   :14                                 Max.   :999                  
+##                                                                          
+##  tumor_size_over_time_recode_1988 tumor_size_summary_2016
+##  Min.   :  3                      Min.   :  3.00         
+##  1st Qu.: 34                      1st Qu.: 31.00         
+##  Median : 48                      Median : 45.00         
+##  Mean   :188                      Mean   : 45.48         
+##  3rd Qu.: 66                      3rd Qu.: 57.00         
+##  Max.   :999                      Max.   :990.00         
+##                                   NA&#39;s   :854            
+##  regional_nodes_examined_1988 regional_nodes_positive_1988 cod_to_site_recode
+##  Min.   : NA                  Min.   : NA                  Min.   :  0.00    
+##  1st Qu.: NA                  1st Qu.: NA                  1st Qu.:  0.00    
+##  Median : NA                  Median : NA                  Median : 90.00    
+##  Mean   :NaN                  Mean   :NaN                  Mean   : 59.34    
+##  3rd Qu.: NA                  3rd Qu.: NA                  3rd Qu.: 90.00    
+##  Max.   : NA                  Max.   : NA                  Max.   :252.00    
+##  NA&#39;s   :5902                 NA&#39;s   :5902                                   
+##  seer_other_cause_of_death_classification survival_months_flag
+##  Min.   :0.0000                           Min.   :0.000       
+##  1st Qu.:0.0000                           1st Qu.:1.000       
+##  Median :0.0000                           Median :1.000       
+##  Mean   :0.0981                           Mean   :1.003       
+##  3rd Qu.:0.0000                           3rd Qu.:1.000       
+##  Max.   :8.0000                           Max.   :3.000       
+##                                                               
+##  total_number_of_in_situ_malignant_tumors_for_patient
+##  Min.   : 1.000                                      
+##  1st Qu.: 1.000                                      
+##  Median : 1.000                                      
+##  Mean   : 1.225                                      
+##  3rd Qu.: 1.000                                      
+##  Max.   :13.000                                      
+##                                                      
+##  total_number_of_benign_borderline_tumors_for_patient
+##  Min.   :0.00000                                     
+##  1st Qu.:0.00000                                     
+##  Median :0.00000                                     
+##  Mean   :0.02406                                     
+##  3rd Qu.:0.00000                                     
+##  Max.   :2.00000                                     
+##                                                      
+##  marital_status_at_diagnosis      time           event       
+##  Min.   :1.00                Min.   : 0.00   Min.   :0.0000  
+##  1st Qu.:2.00                1st Qu.: 3.00   1st Qu.:0.0000  
+##  Median :2.00                Median : 9.00   Median :0.0000  
+##  Mean   :2.22                Mean   :13.72   Mean   :0.3892  
+##  3rd Qu.:2.00                3rd Qu.:19.00   3rd Qu.:1.0000  
+##  Max.   :6.00                Max.   :59.00   Max.   :1.0000  
+##  NA&#39;s   :167                                                 
+##        age_factor    race_factor    sex_factor  
+##  65-69 years: 837   White  :5099   Male  :3428  
+##  70-74 years: 837   Black  : 322   Female:2474  
+##  60-64 years: 783   Other  : 453                
+##  55-59 years: 634   Unknown:  28                
+##  75-79 years: 564                               
+##  50-54 years: 429                               
+##  (Other)    :1818                               
+##                    marital_status_factor                      radiation_factor
+##  Single                       :1085      None                         :1164   
+##  Married                      :3709      Beam Radiation               :4456   
+##  Separated                    :  35      Radioactive Implants         :   7   
+##  Divorced                     : 472      Radioisotopes                :  10   
+##  Widowed                      : 370      Refused                      : 222   
+##  Unmarried or Domestic Partner:  64      Recommended, Unknown if Given:  43   
+##  Unknown                      : 167                                           
+##  radiation_binary     chemo_factor          surgery_performed
+##  No/Other:1446    No/Unknown:1653   Surgery Performed:4984   
+##  Yes     :4456    Yes       :4249   No Surgery       : 916   
+##                                     Unknown          :   2   
+##                                                              
+##                                                              
+##                                                              
+##                                                              
+##                      surgery_sequence_factor
+##  Radiation After Surgery         :3891      
+##  No Radiation and/or No Surgery  :1977      
+##  Intraoperative Radiation        :  13      
+##  Radiation Before Surgery        :   9      
+##  7                               :   6      
+##  Intraoperative + Other Radiation:   3      
+##  (Other)                         :   3      
+##                                    systemic_sequence_factor    stage_factor 
+##  No Systemic Therapy and/or No Surgery         :2140        Localized:4820  
+##  Systemic Therapy Before Surgery               :  15        Regional : 947  
+##  Systemic Therapy After Surgery                :3706        Distant  :  47  
+##  Systemic Therapy Both Before and After Surgery:  26        Benign   :   3  
+##  5                                             :   5        Unknown  :  85  
+##  6                                             :   3                        
+##  7                                             :   7                        
+##          diagnostic_confirmation_factor histology_factor
+##  Positive Histology     :5846           Glioma:5902     
+##  Positive Cytology      :   1                           
+##  Clinical Diagnosis Only:  50                           
+##  Unknown                :   5                           
+##                                                         
+##                                                         
+##                                                         
+##                   primary_site_factor grade_combined_raw    grade_factor 
+##  Frontal Lobe               :1995     Min.   : 1.000     Grade IV :4490  
+##  Temporal Lobe              :1526     1st Qu.: 4.000     Grade III: 637  
+##  Parietal Lobe              : 876     Median : 4.000     Grade II : 553  
+##  Overlapping Lesion of Brain: 614     Mean   : 3.867     Unknown  : 126  
+##  Brain NOS                  : 346     3rd Qu.: 4.000     16       :  64  
+##  Occipital Lobe             : 210     Max.   :16.000     15       :  14  
+##  (Other)                    : 335     NA&#39;s   :126        (Other)  :  18  
+##      grade_binary                                            molecular_factor
+##  Low Grade : 576   Glioblastoma, IDH-wildtype                        :4471   
+##  High Grade:5191   Oligodendroglioma, IDH-mutant and 1p/19q-codeleted: 314   
+##  Unknown   : 135   Astrocytoma, IDH-mutant, Grade II                 : 312   
+##                    Astrocytoma, IDH-mutant, Grade III                : 218   
+##                    Astrocytoma, IDH-wildtype, Grade III              : 205   
+##                    Astrocytoma, IDH-wildtype, Grade II               : 188   
+##                    (Other)                                           : 194   
+##                                    molecular_collapsed         income_factor 
+##  Astrocytoma IDH-mutant                      : 530     16             :1247  
+##  IDH-wildtype                                :4864     12             : 638  
+##  Oligodendroglioma IDH-mutant 1p19q-codeleted: 456     11             : 615  
+##  Other Molecular Group                       :  52     13             : 560  
+##                                                        $75,000+       : 519  
+##                                                        $70,000-$74,999: 492  
+##                                                        (Other)        :1831  
+##   income_binary       rurality_factor     rurality_binary    stage_binary 
+##  &lt;$75,000:1347   Metro 1M+    :3308   Metropolitan:5158   Advanced :1082  
+##  $75,000+: 519   Metro 250K-1M:1448   Unknown     : 744   Localized:4820  
+##  Unknown :4036   Metro &lt;250K  : 402                                       
+##                  11           : 414                                       
+##                  12           : 329                                       
+##                  Unknown      :   1                                       
+## </code></pre>
+<pre class="r"><code>sapply(df_ml, function(x) sum(is.na(x)))</code></pre>
+<pre><code>##                       age_recode_with_1_year_olds_and_90 
+##                                                        0 
+##                            race_recode_white_black_other 
+##                                                       28 
+##                                                      sex 
+##                                                        0 
+##                                        year_of_diagnosis 
+##                                                        0 
+##                             site_recode_icd_o_3_who_2008 
+##                                                        0 
+##                                         radiation_recode 
+##                                                        0 
+##                           chemotherapy_recode_yes_no_unk 
+##                                                        0 
+##                              rx_summ_surg_prim_site_1998 
+##                                                        0 
+##          time_from_diagnosis_to_treatment_in_days_recode 
+##                                                      338 
+##                                     rx_summ_surg_rad_seq 
+##                                                        2 
+##                            rx_summ_systemic_sur_seq_2007 
+##                                                        0 
+##                        reason_no_cancer_directed_surgery 
+##                                                        2 
+##            median_household_income_inflation_adj_to_2023 
+##                                                        1 
+##                               rural_urban_continuum_code 
+##                                                        1 
+##                                          survival_months 
+##                                                        0 
+##                    vital_status_recode_study_cutoff_used 
+##                                                        0 
+##                 seer_cause_specific_death_classification 
+##                                                        0 
+##                             brain_molecular_markers_2018 
+##                                                        0 
+##                                  diagnostic_confirmation 
+##                                                        2 
+## combined_summary_stage_with_expanded_regional_codes_2004 
+##                                                       85 
+##                                      grade_clinical_2018 
+##                                                     2814 
+##                         histology_recode_broad_groupings 
+##                                                        0 
+##                                     primary_site_labeled 
+##                                                        0 
+##                                  grade_pathological_2018 
+##                                                     1026 
+##                                       icd_o_3_hist_behav 
+##                                                        0 
+##                             icd_o_3_hist_behav_malignant 
+##                                                        0 
+##                                               patient_id 
+##                                                        0 
+##                                    behavior_code_icd_o_3 
+##                                                        0 
+##                                seer_brain_and_cns_recode 
+##                                                        0 
+##               radiation_to_brain_or_cns_recode_1988_1997 
+##                                                        0 
+##                            eod_primary_tumor_recode_2018 
+##                                                        0 
+##                         tumor_size_over_time_recode_1988 
+##                                                        0 
+##                                  tumor_size_summary_2016 
+##                                                      854 
+##                             regional_nodes_examined_1988 
+##                                                     5902 
+##                             regional_nodes_positive_1988 
+##                                                     5902 
+##                                       cod_to_site_recode 
+##                                                        0 
+##                 seer_other_cause_of_death_classification 
+##                                                        0 
+##                                     survival_months_flag 
+##                                                        0 
+##     total_number_of_in_situ_malignant_tumors_for_patient 
+##                                                        0 
+##     total_number_of_benign_borderline_tumors_for_patient 
+##                                                        0 
+##                              marital_status_at_diagnosis 
+##                                                      167 
+##                                                     time 
+##                                                        0 
+##                                                    event 
+##                                                        0 
+##                                               age_factor 
+##                                                        0 
+##                                              race_factor 
+##                                                        0 
+##                                               sex_factor 
+##                                                        0 
+##                                    marital_status_factor 
+##                                                        0 
+##                                         radiation_factor 
+##                                                        0 
+##                                         radiation_binary 
+##                                                        0 
+##                                             chemo_factor 
+##                                                        0 
+##                                        surgery_performed 
+##                                                        0 
+##                                  surgery_sequence_factor 
+##                                                        0 
+##                                 systemic_sequence_factor 
+##                                                        0 
+##                                             stage_factor 
+##                                                        0 
+##                           diagnostic_confirmation_factor 
+##                                                        0 
+##                                         histology_factor 
+##                                                        0 
+##                                      primary_site_factor 
+##                                                        0 
+##                                       grade_combined_raw 
+##                                                      126 
+##                                             grade_factor 
+##                                                        0 
+##                                             grade_binary 
+##                                                        0 
+##                                         molecular_factor 
+##                                                        0 
+##                                      molecular_collapsed 
+##                                                        0 
+##                                            income_factor 
+##                                                        0 
+##                                            income_binary 
+##                                                        0 
+##                                          rurality_factor 
+##                                                        0 
+##                                          rurality_binary 
+##                                                        0 
+##                                             stage_binary 
+##                                                        0</code></pre>
 
 
 

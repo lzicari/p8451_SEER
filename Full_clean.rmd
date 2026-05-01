@@ -21,6 +21,8 @@ data <- read_delim("SEER_brain_full.txt",
 
 # RENAME VARIABLES (use your dictionary)
 
+
+
 ```
 
 ```{r}
@@ -528,4 +530,31 @@ table(df_clean$chemo_factor, useNA = "ifany")
 table(df_clean$surgery_performed, useNA = "ifany")
 summary(df_clean$time)
 table(df_clean$event, useNA = "ifany")
+
+df_ml <- df_clean %>%
+  mutate(stage_binary = ifelse(stage_factor == "Localized", "Localized", "Advanced"),
+         stage_binary = factor(stage_binary))
+
+df_ml <- df_ml %>%
+  filter(!molecular_collapsed %in% c("Unknown", "Not Applicable/Pending")) %>%
+  droplevels()
+
+df_ml <- df_ml %>%
+  filter(!is.na(time))
+
+df_ml <- df_ml %>%
+  mutate(
+    sex_factor = factor(sex_factor),
+    race_factor = factor(race_factor),
+    stage_factor = factor(stage_factor),
+    radiation_binary = factor(radiation_binary),
+    chemo_factor = factor(chemo_factor),
+    surgery_performed = factor(surgery_performed),
+    income_binary = factor(income_binary),
+    rurality_binary = factor(rurality_binary)
+  )
+
+summary(df_ml)
+sapply(df_ml, function(x) sum(is.na(x)))
 ```
+
