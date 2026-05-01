@@ -595,9 +595,37 @@ df_ml <- df_ml %>%
 table(df_ml$high_risk)
 ```
 
+## Create treatment intensity
+
 ```{r}
-# select variables for modeling
-df_model <- df_ml %>%
+## create numeric treatment variables
+df_ml <- df_ml %>%
+  mutate(
+    chemo_num = ifelse(chemo_factor == "Yes", 1, 0),
+    radiation_num = ifelse(radiation_binary == "Yes", 1, 0),
+    surgery_num = ifelse(surgery_performed == "Surgery Performed", 1, 0)
+  )
+
+## PCA for treatment intensity
+treatment_matrix <- df_ml %>%
+  select(chemo_num, radiation_num, surgery_num) %>%
+  as.matrix()
+
+pca_treat <- prcomp(treatment_matrix, scale. = TRUE)
+
+summary(pca_treat)
+
+## add treatment intensity score (PC1)
+df_ml$treatment_intensity <- pca_treat$x[,1]
+
+summary(df_ml$treatment_intensity)
+```
+
+# Define Model A vs B
+
+```{r}
+## Model A dataset (no biomarkers)
+df_model_A <- df_ml %>%
   select(
     high_risk,
     age_recode_with_1_year_olds_and_90,
@@ -605,16 +633,25 @@ df_model <- df_ml %>%
     race_factor,
     stage_binary,
     grade_binary,
-    radiation_binary,
-    chemo_factor,
-    surgery_performed,
-    molecular_collapsed
+    treatment_intensity
   ) %>%
   na.omit() %>%
   droplevels()
 
-summary(df_model)
-colSums(is.na(df_model))
+## Model B dataset (WITH biomarkers)
+df_model_B <- df_ml %>%
+  select(
+    high_risk,
+    age_recode_with_1_year_olds_and_90,
+    sex_factor,
+    race_factor,
+    stage_binary,
+    grade_binary,
+    treatment_intensity,
+    molecular_collapsed
+  ) %>%
+  na.omit() %>%
+  droplevels()
 ```
 
 ## Create the split and CV
@@ -623,10 +660,17 @@ colSums(is.na(df_model))
 # Data partition
 set.seed(2)
 
-data_split <- initial_split(df_model, prop = 0.8, strata = high_risk)
+# split Model A
+split_A <- initial_split(df_model_A, prop = 0.8, strata = high_risk)
 
-training_data <- training(data_split)
-testing_data  <- testing(data_split)
+train_A <- training(split_A)
+test_A  <- testing(split_A)
+
+# split Model B
+split_B <- initial_split(df_model_B, prop = 0.8, strata = high_risk)
+
+train_B <- training(split_B)
+test_B  <- testing(split_B)
 
 # set up cross validation
 ctrl <- trainControl(method = "cv", number = 10,
@@ -637,6 +681,7 @@ ctrl <- trainControl(method = "cv", number = 10,
 # Elastic Net 
 
 ```{r}
+# Model A
 set.seed(2)
 
 en.grid <- expand.grid(
@@ -644,37 +689,332 @@ en.grid <- expand.grid(
   lambda = exp(seq(-8, 1, length = 100))
 )
 
-en.fit <- train(
+en_A.fit <- train(
   high_risk ~ .,
-  data = training_data,
+  data = train_A,
   method = "glmnet",
   tuneGrid = en.grid,
   trControl = ctrl,
   metric = "ROC"
 )
 
-ggplot(en.fit, highlight = TRUE)
+ggplot(en_A.fit, highlight = TRUE)
 
-en.fit$bestTune
+en_A.fit$bestTune
 ```
 
 ```{r}
-# predicted probabilities
-en.prob <- predict(en.fit, newdata = testing_data, type = "prob")[, "HighRisk"]
+# Model B
+set.seed(2)
 
-# predicted classes
-en.pred <- predict(en.fit, newdata = testing_data)
+en_B.fit <- train(
+  high_risk ~ .,
+  data = train_B,
+  method = "glmnet",
+  tuneGrid = en.grid,
+  trControl = ctrl,
+  metric = "ROC"
+)
 
-# confusion matrix
-confusionMatrix(en.pred, testing_data$high_risk)
+ggplot(en_B.fit, highlight = TRUE)
 
-# test misclassification error
-mean(en.pred != testing_data$high_risk)
+en_B.fit$bestTune
+```
 
-# test AUC
-roc.en <- roc(testing_data$high_risk, en.prob)
-roc.en$auc
+```{r}
+## test performance for Elastic Net / Ridge
+en_A.prob <- predict(en_A.fit, newdata = test_A, type = "prob")[, "HighRisk"]
+en_A.pred <- predict(en_A.fit, newdata = test_A)
 
-plot(roc.en, legacy.axes = TRUE)
+confusionMatrix(en_A.pred, test_A$high_risk)
+
+roc.en_A <- roc(test_A$high_risk, en_A.prob)
+roc.en_A$auc
+
+mean(en_A.pred != test_A$high_risk)
+
+
+en_B.prob <- predict(en_B.fit, newdata = test_B, type = "prob")[, "HighRisk"]
+en_B.pred <- predict(en_B.fit, newdata = test_B)
+
+confusionMatrix(en_B.pred, test_B$high_risk)
+
+roc.en_B <- roc(test_B$high_risk, en_B.prob)
+roc.en_B$auc
+
+mean(en_B.pred != test_B$high_risk)
+```
+
+## Random Forest
+
+```{r}
+# Model A
+set.seed(2)
+
+rf_A.grid <- expand.grid(
+  mtry = 1:6,
+  splitrule = "gini",
+  min.node.size = 1:6
+)
+
+rf_A.fit <- train(
+  high_risk ~ .,
+  data = train_A,
+  method = "ranger",
+  tuneGrid = rf_A.grid,
+  trControl = ctrl,
+  metric = "ROC",
+  importance = "permutation"
+)
+
+ggplot(rf_A.fit, highlight = TRUE)
+
+rf_A.fit$bestTune
+```
+
+```{r}
+# Model B
+set.seed(2)
+
+rf_B.grid <- expand.grid(
+  mtry = 1:7,
+  splitrule = "gini",
+  min.node.size = 1:6
+)
+
+rf_B.fit <- train(
+  high_risk ~ .,
+  data = train_B,
+  method = "ranger",
+  tuneGrid = rf_B.grid,
+  trControl = ctrl,
+  metric = "ROC",
+  importance = "permutation"
+)
+
+ggplot(rf_B.fit, highlight = TRUE)
+
+rf_B.fit$bestTune
+```
+
+```{r}
+# variable importance for Random Forest Model A
+rf_A.final <- ranger(
+  high_risk ~ .,
+  data = train_A,
+  mtry = rf_A.fit$bestTune$mtry,
+  splitrule = "gini",
+  min.node.size = rf_A.fit$bestTune$min.node.size,
+  importance = "permutation",
+  probability = TRUE
+)
+
+barplot(
+  sort(ranger::importance(rf_A.final), decreasing = FALSE),
+  las = 2,
+  horiz = TRUE
+)
+
+# variable importance for Random Forest Model B
+rf_B.final <- ranger(
+  high_risk ~ .,
+  data = train_B,
+  mtry = rf_B.fit$bestTune$mtry,
+  splitrule = "gini",
+  min.node.size = rf_B.fit$bestTune$min.node.size,
+  importance = "permutation",
+  probability = TRUE
+)
+
+barplot(
+  sort(ranger::importance(rf_B.final), decreasing = FALSE),
+  las = 2,
+  horiz = TRUE
+)
+```
+
+```{r}
+## test performance for Random Forest
+rf_A.prob <- predict(rf_A.fit, newdata = test_A, type = "prob")[, "HighRisk"]
+rf_A.pred <- predict(rf_A.fit, newdata = test_A)
+
+confusionMatrix(rf_A.pred, test_A$high_risk)
+
+roc.rf_A <- roc(test_A$high_risk, rf_A.prob)
+roc.rf_A$auc
+
+mean(rf_A.pred != test_A$high_risk)
+
+
+rf_B.prob <- predict(rf_B.fit, newdata = test_B, type = "prob")[, "HighRisk"]
+rf_B.pred <- predict(rf_B.fit, newdata = test_B)
+
+confusionMatrix(rf_B.pred, test_B$high_risk)
+
+roc.rf_B <- roc(test_B$high_risk, rf_B.prob)
+roc.rf_B$auc
+
+mean(rf_B.pred != test_B$high_risk)
+```
+
+## Boosting
+
+```{r}
+set.seed(2)
+
+gbm_A.grid <- expand.grid(
+  n.trees = c(100, 200, 500, 1000, 2000, 5000),
+  interaction.depth = 1:4,
+  shrinkage = c(0.001, 0.003, 0.005, 0.01),
+  n.minobsinnode = 10
+)
+
+# Model A
+gbm_A.fit <- train(
+  high_risk ~ .,
+  data = train_A,
+  method = "gbm",
+  tuneGrid = gbm_A.grid,
+  trControl = ctrl,
+  distribution = "bernoulli",
+  metric = "ROC",
+  verbose = FALSE
+)
+
+ggplot(gbm_A.fit, highlight = TRUE)
+
+gbm_A.fit$bestTune
+```
+
+```{r}
+# Model B
+set.seed(2)
+
+gbm_B.grid <- expand.grid(
+  n.trees = c(100, 200, 500, 1000, 2000, 5000),
+  interaction.depth = 1:4,
+  shrinkage = c(0.001, 0.003, 0.005, 0.01),
+  n.minobsinnode = 10
+)
+
+gbm_B.fit <- train(
+  high_risk ~ .,
+  data = train_B,
+  method = "gbm",
+  tuneGrid = gbm_B.grid,
+  trControl = ctrl,
+  distribution = "bernoulli",
+  metric = "ROC",
+  verbose = FALSE
+)
+
+ggplot(gbm_B.fit, highlight = TRUE)
+
+gbm_B.fit$bestTune
+```
+
+```{r}
+## variable importance for Boosting Model A
+summary(gbm_A.fit$finalModel,
+        las = 2,
+        cBars = ncol(train_A) - 1,
+        cex.names = 0.6)
+
+## variable importance for Boosting Model B
+
+summary(gbm_B.fit$finalModel,
+        las = 2,
+        cBars = ncol(train_B) - 1,
+        cex.names = 0.6)
+```
+
+```{r}
+## test performance for Boosting
+gbm_A.prob <- predict(gbm_A.fit, newdata = test_A, type = "prob")[, "HighRisk"]
+gbm_A.pred <- predict(gbm_A.fit, newdata = test_A)
+
+confusionMatrix(gbm_A.pred, test_A$high_risk)
+
+roc.gbm_A <- roc(test_A$high_risk, gbm_A.prob)
+roc.gbm_A$auc
+
+mean(gbm_A.pred != test_A$high_risk)
+
+
+gbm_B.prob <- predict(gbm_B.fit, newdata = test_B, type = "prob")[, "HighRisk"]
+gbm_B.pred <- predict(gbm_B.fit, newdata = test_B)
+
+confusionMatrix(gbm_B.pred, test_B$high_risk)
+
+roc.gbm_B <- roc(test_B$high_risk, gbm_B.prob)
+roc.gbm_B$auc
+
+mean(gbm_B.pred != test_B$high_risk)
+```
+
+## Compare all 3
+
+```{r}
+## compare all models
+model_results <- data.frame(
+  Approach = c(
+    "Regularized Logistic Regression",
+    "Regularized Logistic Regression",
+    "Random Forest",
+    "Random Forest",
+    "Boosting",
+    "Boosting"
+  ),
+  Model = c(
+    "Model A: Clinical Only",
+    "Model B: Clinical + Biomarkers",
+    "Model A: Clinical Only",
+    "Model B: Clinical + Biomarkers",
+    "Model A: Clinical Only",
+    "Model B: Clinical + Biomarkers"
+  ),
+  Test_AUC = c(
+    as.numeric(roc.en_A$auc),
+    as.numeric(roc.en_B$auc),
+    as.numeric(roc.rf_A$auc),
+    as.numeric(roc.rf_B$auc),
+    as.numeric(roc.gbm_A$auc),
+    as.numeric(roc.gbm_B$auc)
+  ),
+  Test_Error = c(
+    mean(en_A.pred != test_A$high_risk),
+    mean(en_B.pred != test_B$high_risk),
+    mean(rf_A.pred != test_A$high_risk),
+    mean(rf_B.pred != test_B$high_risk),
+    mean(gbm_A.pred != test_A$high_risk),
+    mean(gbm_B.pred != test_B$high_risk)
+  )
+)
+
+model_results
+```
+
+```{r}
+## ROC curves for Model A
+
+plot(roc.en_A, legacy.axes = TRUE)
+plot(roc.rf_A, add = TRUE)
+plot(roc.gbm_A, add = TRUE)
+
+legend("bottomright",
+       legend = c("Ridge / Elastic Net", "Random Forest", "Boosting"),
+       lwd = 2)
+```
+
+```{r}
+## ROC curves for Model B
+
+plot(roc.en_B, legacy.axes = TRUE)
+plot(roc.rf_B, add = TRUE)
+plot(roc.gbm_B, add = TRUE)
+
+legend("bottomright",
+       legend = c("Ridge / Elastic Net", "Random Forest", "Boosting"),
+       lwd = 2)
 ```
 
