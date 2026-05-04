@@ -1,9 +1,11 @@
 ---
-title: "Do molecular biomarkers improve the predictive performance of models identifying high-risk brain cancer patients (survival <1 year) compared to models using clinical variables alone?"
+title: "Do molecular biomarkers improve brain cancer prediction?"
 author: "Sukhman Parhar & Lawrence Zicari"
 date: "2026-04-23"
 output: html_document
 ---
+
+
 
 ### Project Description - Option 3
 
@@ -41,7 +43,7 @@ Model Comparison: Area Under the Curve will be used to determine the model with 
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 library(tidyverse)
 library(ISLR)
