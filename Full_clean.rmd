@@ -16,7 +16,7 @@ Research Question: Do molecular biomarkers improve the predictive performance of
 ### Rationale
 Brain cancer remains a highly lethal diagnosis and early identification of high-risk patients is critical for improving outcomes and developing treatment plans. While traditional clinical variables (age, tumor stage, grade...) are important, they can fail to capture some of the more complex biological signals in cancer cases.
 
-Advances in precision medicine have explored molecular biomarkers that provide more specific and deeper insights into tumors. SEER began collected data on these biomarkers in 2018 creating an opportunity to assess if these features significantly improve predictive power of high risk patients. In this study, we define high risk as survival less than 12 months. This is a commonly used  clinical threshold for identifying highly aggressive diseases and is essential for guiding early interventions. This study aims to determine if precision medicine features can better identify high-risk patients allowing for more individualized treatment strategies. 
+Advances in precision medicine have explored molecular biomarkers that provide more specific and deeper insights into tumors. SEER began collected data on these biomarkers in 2018 creating an opportunity to assess if these features significantly improve predictive power of high risk patients. In this study, we define high risk as survival less than 12 months. This is a commonly used  clinical threshold for identifying highly aggressive cancer diasgnoses and is essential for guiding early interventions. This study aims to determine if precision medicine features can better identify high-risk patients allowing for more individualized treatment strategies. 
 
 ---
 
@@ -686,6 +686,8 @@ ctrl <- trainControl(method = "cv", number = 10,
                      summaryFunction = twoClassSummary,
                      classProbs = TRUE)
 ```
+
+An 80/20 training/test partition was established to test the final model on unseen data to see how it performs on new patients. A 10-fold cross-validation was established to ensure model stability and robustness of performance metrics during the training phase to optimize hyperparameter tuning and reduce the potential for overfitting.
 
 ---
 
