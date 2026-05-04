@@ -1,15 +1,19 @@
 ---
-title: "Full_Code"
+title: "Do molecular biomarkers improve the predictive performance of models identifying high-risk brain cancer patients (survival <1 year) compared to models using clinical variables alone?"
 author: "Sukhman Parhar & Lawrence Zicari"
 date: "2026-04-23"
 output: html_document
 ---
 
-# Project Description (Option 3)
-Dataset: SEER (Surveillance, Epidemiology, and End Results) Program - National Cancer Incidence Dataset (2018+ Biomarker Cohort)
+### Project Description - Option 3
 
+Project Members -  Lawrence Zicari & Sukhman Parhar
 
-Research Question: Do molecular biomarkers improve the predictive performance of models identifying high-risk brain cancer patients (survival <1 year) compared to models using clinical variables alone? This is a predictive question with the goal of improving classification of patients into "high-risk" and "low-risk" categories. 
+Dataset - SEER (Surveillance, Epidemiology, and End Results) Program - National Cancer Incidence Dataset (2018+ Biomarker Cohort)
+
+Research Question - Do molecular biomarkers improve the predictive performance of models identifying high-risk brain cancer patients (survival <1 year) compared to models using clinical variables alone?
+
+This is a predictive question with the goal of improving classification of patients into "high-risk" and "low-risk" categories. 
 
 ---
 
@@ -588,8 +592,7 @@ df_ml <- df_ml %>%
 table(df_ml$high_risk)
 ```
 
-This cleaning pipeline handled missingness by standardizing variable specific unknown codes to NA values. Categorifcal variables including demographics, clinical staging, and biomarkers were re-coded and factored into clinically meaningful groups and variables were labeled to ensure readability. A binary outcome variable was also created to assess risk with a 12 month survival threshold to define low or high risk patients.
-
+This cleaning pipeline handled missingness by standardizing variable specific unknown codes to NA values. Categorifcal variables including demographics, clinical staging, and biomarkers were re-coded and factored into clinically meaningful groups and variables were labeled to ensure readability. A binary outcome variable was also created to assess risk with a 12 month survival threshold to define low or high risk patients. 
 ---
 
 # Analystic Pipeline
@@ -630,7 +633,7 @@ PC1 explains 61.4% of the total variance in the treatment variables and is the m
 
 ### Defining our Models: Model A - No molecular biomarkers ; Model B - With moelcular biomarkers
 
-To evaluate the predictive value of the molecular biomarker features, we constructed two distinct models. Model A is the baseline using traditional demographic and clinical variables. Model B includes the same features with the addition of the biomarker variable. This approach will allow for the direct comparison of performance metrics across our selected algorithms.
+To evaluate the predictive value of the molecular biomarker features, we constructed two distinct models. Model A is the baseline using traditional demographic and clinical variables. Model B includes the same features with the addition of the biomarker variable. This approach will allow for the direct comparison of performance metrics across our selected algorithms. Only patients with complete data regarding the selected clinical and biomarker variables were included in the analysis to avoid any biases associated with estimating unknown clinical data. 
 
 ```{r}
 ## Model A dataset (no biomarkers)
@@ -1035,12 +1038,12 @@ roc_gbm_B_train$auc
 ```
 
 
-Model A:
+Model A Performance Metrics:
 $AUC = 0.764$
 $Sensitivity = 0.733$        
 $Specificity = 0.636$
 
-Model B:
+Model B Performance Metrics:
 $AUC = 0.778$
 $Sensitivity = 0.737$         
 $Specificity = 0.649$
