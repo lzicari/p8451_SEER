@@ -971,7 +971,6 @@ gbm_B.fit$bestTune
 
 The tuning process for Model B identified an optimal tune of 1,000 trees with a shrinkage of 0.005 and an interaction depth of 3.
 
-
 ```{r}
 # variable importance for Boosting Model A
 imp_A_gbm <- caret::varImp(gbm_A.fit)$importance %>%
@@ -1137,7 +1136,7 @@ ggroc(roc_list, legacy.axes = TRUE, size = 1.2) +
         strip.text = element_text(face = "bold", size = 11))
 ```
 
-The final evaluation results differed from the previous comparisons between Model A & Model B. While Model B outperformed Model A in internal validations, Model A achieved a higher AUC on the test set for Rnadom Forest. This suggests overfitting from the molecular biomarkers to the training data. However, Model B did exhibit a higher sensitivity, suggesting that Model B is better at predicting true positives. In a clinical setting, this increased capacity to identify high-risk patients is an advantage over model A. 
+The final evaluation results differed from the previous comparisons between Model A & Model B. While Model B outperformed Model A in internal validations, Model A achieved a higher AUC on the test set for Random Forest. This suggests overfitting from the molecular biomarkers to the training data. However, Model B did exhibit a higher sensitivity, suggesting that Model B is better at predicting true positives. In a clinical setting, this increased capacity to identify high-risk patients is an advantage over model A. 
 The ROC curve was plotted for Random Forest to illustrate the balance between sensitivity and specificity of a non-linear model that allows for complex interactions between features. 
 
 ---
