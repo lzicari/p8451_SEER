@@ -592,7 +592,7 @@ df_ml <- df_ml %>%
 table(df_ml$high_risk)
 ```
 
-This cleaning pipeline handled missingness by standardizing variable specific unknown codes to NA values. Categorifcal variables including demographics, clinical staging, and biomarkers were re-coded and factored into clinically meaningful groups and variables were labeled to ensure readability. A binary outcome variable was also created to assess risk with a 12 month survival threshold to define low or high risk patients. 
+This cleaning pipeline handled missingness by standardizing variable specific unknown codes to NA values. Categorical variables including demographics, clinical staging, and biomarkers were re-coded and factored into clinically meaningful groups and variables were labeled to ensure readability. A binary outcome variable was also created to assess risk with a 12 month survival threshold to define low or high risk patients. 
 ---
 
 # Analystic Pipeline
