@@ -1,8 +1,39 @@
 ---
 title: "Full_Code"
-author: "Sukhman Parhar"
+author: "Sukhman Parhar & Lawrence Zicari"
 date: "2026-04-23"
 output: html_document
+---
+
+# Project Description (Option 3)
+Dataset: SEER (Surveillance, Epidemiology, and End Results) Program - National Cancer Incidence Dataset (2018+ Biomarker Cohort)
+
+
+Research Question: Do molecular biomarkers improve the predictive performance of models identifying high-risk brain cancer patients (survival <1 year) compared to models using clinical variables alone? This is a predictive question with the goal of improving classification of patients into "high-risk" and "low-risk" categories. 
+
+---
+
+### Rationale
+Brain cancer remains a highly lethal diagnosis and early identification of high-risk patients is critical for improving outcomes and developing treatment plans. While traditional clinical variables (age, tumor stage, grade...) are important, they can fail to capture some of the more complex biological signals in cancer cases.
+
+Advances in precision medicine have explored molecular biomarkers that provide more specific and deeper insights into tumors. SEER began collected data on these biomarkers in 2018 creating an opportunity to assess if these features significantly improve predictive power of high risk patients. In this study, we define high risk as survival less than 12 months. This is a commonly used  clinical threshold for identifying highly aggressive diseases and is essential for guiding early interventions. This study aims to determine if precision medicine features can better identify high-risk patients allowing for more individualized treatment strategies. 
+
+---
+
+### Analytic Pipeline Summary
+Data Preparation: Cleaning, handling of missingness, and labeling of variables
+
+Construction of new variable: Run a PCA to create a treatment intensity index variable
+
+Data Partition & Cross validation set up: 80/20 train/test split with a 10-fold cross validation will be implemented
+
+Model Training: 3 algorithms will be used for comparisons and each will have their given hyperparameters tuned
+                Elastic Net - Baseline model with lower complexity that can also assist in feature selection
+                Random Forest - Handles any non-linear relationships and interaction while allowing for the direct assessment of variable importance
+                Boosting - Optimize predictive accuracy 
+                
+Model Comparison: Area Under the Curve will be used to determine the model with the strongest predictive performance. This model will then be tested on the test set to evaluate final performance. 
+
 ---
 
 ```{r setup, include=FALSE}
@@ -36,7 +67,9 @@ library(tidyverse)
 library(janitor)
 ```
 
-## Load in the Data
+---
+
+### Loading in Data
 
 ```{r}
 data <- read_delim("SEER_brain_full.txt", 
@@ -46,55 +79,12 @@ data <- read_delim("SEER_brain_full.txt",
   clean_names() 
 ```
 
-# Clean the data
+---
+
+### Cleaning Pipeline
 
 ```{r}
 df_clean <- data
-
-# names(df_clean) <- c(
-#   "age_recode_with_1_year_olds_and_90",
-#   "race_recode_white_black_other",
-#   "sex",
-#   "year_of_diagnosis",
-#   "site_recode_icd_o_3_who_2008",
-#   "radiation_recode",
-#   "chemotherapy_recode_yes_no_unk",
-#   "rx_summ_surg_prim_site_1998",
-#   "time_from_diagnosis_to_treatment_in_days_recode",
-#   "rx_summ_surg_rad_seq",
-#   "rx_summ_systemic_sur_seq_2007",
-#   "reason_no_cancer_directed_surgery",
-#   "median_household_income_inflation_adj_to_2023",
-#   "rural_urban_continuum_code",
-#   "survival_months",
-#   "vital_status_recode_study_cutoff_used",
-#   "seer_cause_specific_death_classification",
-#   "brain_molecular_markers_2018",
-#   "diagnostic_confirmation",
-#   "combined_summary_stage_with_expanded_regional_codes_2004",
-#   "grade_clinical_2018",
-#   "histology_recode_broad_groupings",
-#   "primary_site_labeled",
-#   "grade_pathological_2018",
-#   "icd_o_3_hist_behav",
-#   "icd_o_3_hist_behav_malignant",
-#   "patient_id",
-#   "behavior_code_icd_o_3",
-#   "seer_brain_and_cns_recode",
-#   "radiation_to_brain_or_cns_recode_1988_1997",
-#   "eod_primary_tumor_recode_2018",
-#   "tumor_size_over_time_recode_1988",
-#   "tumor_size_summary_2016",
-#   "regional_nodes_examined_1988",
-#   "regional_nodes_positive_1988",
-#   "cod_to_site_recode",
-#   "seer_other_cause_of_death_classification",
-#   "survival_months_flag",
-#   "total_number_of_in_situ_malignant_tumors",
-#   "total_number_of_benign_borderline_tumors",
-#   "marital_status_at_diagnosis"
-# )
-
 
 # BASIC NUMERIC CLEANING
 
@@ -111,7 +101,8 @@ df_clean <- df_clean %>%
       suppressWarnings(as.numeric(regional_nodes_positive_1988))
   )
 
-# Clean missing
+# Clean missing - Standardizing missing into NA per SEER data dictionary codes
+
 df_clean <- df_clean %>%
   mutate(
     # survival_months: 9999 means unknown
@@ -121,10 +112,10 @@ df_clean <- df_clean %>%
     time_from_diagnosis_to_treatment_in_days_recode =
       na_if(time_from_diagnosis_to_treatment_in_days_recode, 999),
 
-    # tumor_size_summary_2016 often uses 999 as unknown
+    # tumor_size_summary_2016 uses 999 as unknown
     tumor_size_summary_2016 = na_if(tumor_size_summary_2016, 999),
 
-    # nodes often use 99 as unknown
+    # nodes uses 99 as unknown
     regional_nodes_examined_1988 = na_if(regional_nodes_examined_1988, 99),
     regional_nodes_positive_1988 = na_if(regional_nodes_positive_1988, 99)
   ) %>%
@@ -171,7 +162,7 @@ df_clean <- df_clean %>%
     )
   )
 
-# AGE FACTOR
+# Age factor & labeling
 df_clean <- df_clean %>%
   mutate(
     age_factor = factor(
@@ -203,8 +194,8 @@ df_clean <- df_clean %>%
       )
   )
 
-# Drop below 18
-# DEMOGRAPHIC FACTORS
+
+# Demographic variable factoring  & labeling
 df_clean <- df_clean %>%
   mutate(
     race_factor = factor(race_recode_white_black_other) %>%
@@ -235,7 +226,7 @@ df_clean <- df_clean %>%
   )
 
 
-# TREATMENT FACTORS
+# Treatment variable factoring  & labeling
 
 df_clean <- df_clean %>%
   mutate(
@@ -297,7 +288,7 @@ df_clean <- df_clean %>%
   )
 
 
-# TUMOR / DISEASE FACTORS
+# Tumor / disease factoring  & labeling
 
 df_clean <- df_clean %>%
   mutate(
@@ -349,8 +340,7 @@ df_clean <- df_clean %>%
   )
 
 
-# GRADE
-# Use pathological first, clinical if path missing
+# Tumor Grade Classification - 2 variables indicate grade, the main being "grade_pathological" but if missing, we assess grade via "grade_clinical" to maximize data retention. Using standard defintions, we then collapsed grade into a binary Low Grade/High Grade variable.
 
 df_clean <- df_clean %>%
   mutate(
@@ -376,7 +366,7 @@ df_clean <- df_clean %>%
   )
 
 
-# MOLECULAR MARKERS
+# Molecular Markers - re-coded into 5 distinct biological groupings
 
 df_clean <- df_clean %>%
   mutate(
@@ -419,7 +409,7 @@ df_clean <- df_clean %>%
   )
 
 
-# SOCIOECONOMIC GEOGRAPHIC VARIABLES
+# Socioeconomic and geographic variable factoring & labeling
 
 df_clean <- df_clean %>%
   mutate(
@@ -437,7 +427,8 @@ df_clean <- df_clean %>%
         "$75,000+" = "10"
       ) %>%
       fct_na_value_to_level(level = "Unknown"),
-
+    
+    # Creating binary income variable
     income_binary = case_when(
       median_household_income_inflation_adj_to_2023 %in% 1:9 ~ "<$75,000",
       median_household_income_inflation_adj_to_2023 == 10 ~ "$75,000+",
@@ -446,6 +437,7 @@ df_clean <- df_clean %>%
     income_binary = factor(income_binary,
                            levels = c("<$75,000", "$75,000+", "Unknown")),
 
+    # Creating rurality binary variable (metropolitan vs non-metropolitan)
     rurality_factor = factor(rural_urban_continuum_code) %>%
       fct_recode(
         "Metro 1M+" = "1",
@@ -470,7 +462,7 @@ df_clean <- df_clean %>%
   )
 
 
-# LABELS
+# Descrptive labels for variables
 
 df_clean <- set_variable_labels(
   df_clean,
@@ -506,37 +498,38 @@ df_clean <- set_variable_labels(
   regional_nodes_positive_1988 = "Regional nodes positive"
 )
 
-# df_clean <- df_clean %>%
-#   select(
-#     -age_recode_with_1_year_olds_and_90,
-#     -race_recode_white_black_other,
-#     -sex,
-#     -radiation_recode,
-#     -chemotherapy_recode_yes_no_unk,
-#     -reason_no_cancer_directed_surgery,
-#     -rx_summ_surg_rad_seq,
-#     -rx_summ_systemic_sur_seq_2007,
-#     -brain_molecular_markers_2018,
-#     -diagnostic_confirmation,
-#     -combined_summary_stage_with_expanded_regional_codes_2004,
-#     -grade_clinical_2018,
-#     -grade_pathological_2018,
-#     -histology_recode_broad_groupings,
-#     -primary_site_labeled,
-#     -median_household_income_inflation_adj_to_2023,
-#     -rural_urban_continuum_code,
-#     -marital_status_at_diagnosis
-#   )
+# Dropping old variables
+df_clean <- df_clean %>%
+   select(
+     -age_recode_with_1_year_olds_and_90,
+     -race_recode_white_black_other,
+     -sex,
+     -radiation_recode,
+     -chemotherapy_recode_yes_no_unk,
+     -reason_no_cancer_directed_surgery,
+     -rx_summ_surg_rad_seq,
+     -rx_summ_systemic_sur_seq_2007,
+     -brain_molecular_markers_2018,
+     -diagnostic_confirmation,
+     -combined_summary_stage_with_expanded_regional_codes_2004,
+     -grade_clinical_2018,
+     -grade_pathological_2018,
+     -histology_recode_broad_groupings,
+     -primary_site_labeled,
+     -median_household_income_inflation_adj_to_2023,
+     -rural_urban_continuum_code,
+     -marital_status_at_diagnosis
+   )
 
 
-# ANALYSIS-READY DATASET
+# Analysis ready dataset
 
 analysis_df <- df_clean %>%
   filter(!is.na(time), time > 0) %>%
   filter(!is.na(event))
 
 
-# CHECKS
+# Checks to ensure successful cleaning pipeline
 
 str(df_clean)
 
@@ -580,14 +573,14 @@ df_ml <- df_ml %>%
 summary(df_ml)
 sapply(df_ml, function(x) sum(is.na(x)))
 
-## create binary outcome for machine learning
+## Creating binary outcome variable for models 
 df_ml <- df_ml %>%
   mutate(event_factor = factor(ifelse(event == 1, "Death", "Alive"),
                                levels = c("Death", "Alive")))
 
 table(df_ml$event_factor)
 
-# create high-risk outcome
+# creating high-risk outcome variable for models 
 df_ml <- df_ml %>%
   mutate(high_risk = ifelse(time < 12, "HighRisk", "LowRisk"),
          high_risk = factor(high_risk, levels = c("HighRisk", "LowRisk")))
@@ -595,7 +588,10 @@ df_ml <- df_ml %>%
 table(df_ml$high_risk)
 ```
 
-## Create treatment intensity
+---
+# Analystic Pipeline
+
+### Unsupervised Analysis (PCA) - Treatment Intensity Index variable 
 
 ```{r}
 ## create numeric treatment variables
@@ -613,7 +609,11 @@ treatment_matrix <- df_ml %>%
 
 pca_treat <- prcomp(treatment_matrix, scale. = TRUE)
 
+
 summary(pca_treat)
+
+# Checking the loadings for the PCA
+pca_treat$rotation
 
 ## add treatment intensity score (PC1)
 df_ml$treatment_intensity <- pca_treat$x[,1]
@@ -621,14 +621,20 @@ df_ml$treatment_intensity <- pca_treat$x[,1]
 summary(df_ml$treatment_intensity)
 ```
 
-# Define Model A vs B
+PC1 explains 61.4% of the total variance in the treatment variables and is the most efficient single-variable index of treatment intensity. The loadings of the PC1 indicate that chemotherapy (-0.689) and radiation (-0.689) are the primary drivers of the index while surgery (-0.225) contributes to a lesser degree. Because all the loadings were negative, a lower score of PC1 actually indicates a more intense treatment received. This new variable allows the predictive models to account for the synergistic effects of the combined treatment therapies while reducing the risk of over-fitting by decreasing the amount of features. 
+
+---
+
+### Defining our Models: Model A - No molecular biomarkers ; Model B - With moelcular biomarkers
+
+To evaluate the predictive value of the molecular biomarker features, we constructed two distinct models. Model A is the baseline using traditional demographic and clinical variables. Model B includes the same features with the addition of the biomarker variable. This approach will allow for the direct comparison of performance metrics across our selected algorithms.
 
 ```{r}
 ## Model A dataset (no biomarkers)
 df_model_A <- df_ml %>%
   select(
     high_risk,
-    age_recode_with_1_year_olds_and_90,
+    age_factor,
     sex_factor,
     race_factor,
     stage_binary,
@@ -642,7 +648,7 @@ df_model_A <- df_ml %>%
 df_model_B <- df_ml %>%
   select(
     high_risk,
-    age_recode_with_1_year_olds_and_90,
+    age_factor,
     sex_factor,
     race_factor,
     stage_binary,
@@ -654,7 +660,7 @@ df_model_B <- df_ml %>%
   droplevels()
 ```
 
-## Create the split and CV
+### Data partitioning & CV set up - 80/20 train/test split Create the split and 10-fold CV
 
 ```{r}
 # Data partition
@@ -678,7 +684,9 @@ ctrl <- trainControl(method = "cv", number = 10,
                      classProbs = TRUE)
 ```
 
-# Elastic Net 
+---
+
+### Algorithm 1 - Elastic Net 
 
 ```{r}
 # Model A
@@ -722,30 +730,47 @@ en_B.fit$bestTune
 ```
 
 ```{r}
-## test performance for Elastic Net / Ridge
-en_A.prob <- predict(en_A.fit, newdata = test_A, type = "prob")[, "HighRisk"]
-en_A.pred <- predict(en_A.fit, newdata = test_A)
+## Evaluation on Training Data (Model A)
+en_A_train_prob <- predict(en_A.fit, newdata = train_A, type = "prob")[, "HighRisk"]
+en_A_train_pred <- predict(en_A.fit, newdata = train_A)
 
-confusionMatrix(en_A.pred, test_A$high_risk)
+# Training Confusion Matrix
+confusionMatrix(en_A_train_pred, train_A$high_risk)
 
-roc.en_A <- roc(test_A$high_risk, en_A.prob)
-roc.en_A$auc
-
-mean(en_A.pred != test_A$high_risk)
-
-
-en_B.prob <- predict(en_B.fit, newdata = test_B, type = "prob")[, "HighRisk"]
-en_B.pred <- predict(en_B.fit, newdata = test_B)
-
-confusionMatrix(en_B.pred, test_B$high_risk)
-
-roc.en_B <- roc(test_B$high_risk, en_B.prob)
-roc.en_B$auc
-
-mean(en_B.pred != test_B$high_risk)
+# Training ROC/AUC
+roc_en_A_train <- roc(train_A$high_risk, en_A_train_prob)
+roc_en_A_train$auc
 ```
 
-## Random Forest
+```{r}
+## Evaluation on Training Data (Model B - WITH Biomarkers)
+en_B_train_prob <- predict(en_B.fit, newdata = train_B, type = "prob")[, "HighRisk"]
+en_B_train_pred <- predict(en_B.fit, newdata = train_B)
+
+# Training Confusion Matrix 
+confusionMatrix(en_B_train_pred, train_B$high_risk)
+
+# Training ROC/AUC
+roc_en_B_train <- roc(train_B$high_risk, en_B_train_prob)
+roc_en_B_train$auc
+```
+
+
+Model A Tuned Hyperparameters:
+$\alpha = 0.3$ 
+$\lambda = 0.0183$
+
+Model B Tuned Hyperparameters:
+$\alpha = 0.2$ 
+$\lambda = 0.0498$
+
+Both models had a favored blend towards ridge but Model B especially was heavily tuned towards ridge regression ($\alpha = 0.2$).
+
+After evaluating the models on the training set, model B shows a slight edge with an AUC of 0.769 compared to 0.760 for model A. While the difference is relatively small, it does show that molecular biomarkers provide the model with information that the demographic and clinical variables alone do not capture. Model B has a higher Sensitivity (0.808) than Model A (0.762), indicating that Model B was better at identifying high-risk patients who are truly high risk (True positives). However, Model B had a lower Specificity (0.545) than Model A (0.597), indicating that is it more likely to misclassify low-risk patients as high-risk.
+
+---
+
+### Algorithm 2- Random Forest
 
 ```{r}
 # Model A
@@ -772,6 +797,8 @@ ggplot(rf_A.fit, highlight = TRUE)
 rf_A.fit$bestTune
 ```
 
+This plot displays the tuning results for Model A. This shows a peak in predictive performance at an mtry of 5 and a minimal node size of 5. 
+
 ```{r}
 # Model B
 set.seed(2)
@@ -797,6 +824,8 @@ ggplot(rf_B.fit, highlight = TRUE)
 rf_B.fit$bestTune
 ```
 
+This plot displays the tuning results for Model B. This shows a peak in predictive performance at an mtry of 5 and a minimal node size of 6. 
+
 ```{r}
 # variable importance for Random Forest Model A
 rf_A.final <- ranger(
@@ -807,12 +836,6 @@ rf_A.final <- ranger(
   min.node.size = rf_A.fit$bestTune$min.node.size,
   importance = "permutation",
   probability = TRUE
-)
-
-barplot(
-  sort(ranger::importance(rf_A.final), decreasing = FALSE),
-  las = 2,
-  horiz = TRUE
 )
 
 # variable importance for Random Forest Model B
@@ -826,38 +849,69 @@ rf_B.final <- ranger(
   probability = TRUE
 )
 
-barplot(
-  sort(ranger::importance(rf_B.final), decreasing = FALSE),
-  las = 2,
-  horiz = TRUE
-)
+# Extracting Variable importance for both models to plot them together
+imp_A <- as.data.frame(ranger::importance(rf_A.final)) %>%
+  rownames_to_column(var = "Variable") %>%
+  rename(Importance = 2) %>%
+  mutate(Model = "Model A: Clinical Only")
+
+imp_B <- as.data.frame(ranger::importance(rf_B.final)) %>%
+  rownames_to_column(var = "Variable") %>%
+  rename(Importance = 2) %>%
+  mutate(Model = "Model B: Clinical + Biomarkers")
+
+combined_imp <- bind_rows(imp_A, imp_B)
+
+# Creating faceted plot
+ggplot(combined_imp, aes(x = reorder(Variable, Importance), y = Importance, fill = Model)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  facet_wrap(~Model, scales = "free_y") +
+  labs(
+    title = "Comparison of Variable Importance",
+    x = "Predictors",
+    y = "Importance Score",
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("steelblue", "darkorange"))
+```
+
+This plot shows the differences in variable importance between Model A and Model B. The results of model A clearly illustrates the importance of treatment intensity which has direct implications on survival and justifies its inclusion in the model as a summary measure of clinical interventions. Age, grade, and stage were among the other most important variables. Model B has a slightly different profile where the molecular biomarker variable is ranked third in importance above both grade and stage, indicating that it is a highly relevant predictor and contributed significantly to the model. The visualization is another piece of evidence that molecular biomarkers provide unique and substantial predictive value.
+
+```{r}
+## Evaluation on Training Data (Model A)
+
+# Model A 
+rf_A_train_prob <- predict(rf_A.fit, newdata = train_A, type = "prob")[, "HighRisk"]
+rf_A_train_pred <- predict(rf_A.fit, newdata = train_A)
+
+# Training Confusion Matrix
+confusionMatrix(rf_A_train_pred, train_A$high_risk)
+
+# Training ROC/AUC
+roc_rf_A_train  <- roc(train_A$high_risk, rf_A_train_prob)
+roc_rf_A_train$auc
 ```
 
 ```{r}
-## test performance for Random Forest
-rf_A.prob <- predict(rf_A.fit, newdata = test_A, type = "prob")[, "HighRisk"]
-rf_A.pred <- predict(rf_A.fit, newdata = test_A)
+## Evaluation on Training Data (Model B - with Biomarkers)
+# Model B
+rf_B_train_prob <- predict(rf_B.fit, newdata = train_B, type = "prob")[, "HighRisk"]
+rf_B_train_pred <- predict(rf_B.fit, newdata = train_B)
 
-confusionMatrix(rf_A.pred, test_A$high_risk)
+# Training Confusion Matrix
+confusionMatrix(rf_B_train_pred, train_B$high_risk)
 
-roc.rf_A <- roc(test_A$high_risk, rf_A.prob)
-roc.rf_A$auc
-
-mean(rf_A.pred != test_A$high_risk)
-
-
-rf_B.prob <- predict(rf_B.fit, newdata = test_B, type = "prob")[, "HighRisk"]
-rf_B.pred <- predict(rf_B.fit, newdata = test_B)
-
-confusionMatrix(rf_B.pred, test_B$high_risk)
-
-roc.rf_B <- roc(test_B$high_risk, rf_B.prob)
-roc.rf_B$auc
-
-mean(rf_B.pred != test_B$high_risk)
+# Training ROC/AUC
+roc_rf_B_train  <- roc(train_B$high_risk, rf_B_train_prob)
+roc_rf_B_train$auc
 ```
 
-## Boosting
+The evaluation of these models on the training set shows that Model B ($AUC = 0.815$) outperformed Model A ($AUC = 0.795$). These results suggest that the non-linear ensemble nature of Random Forest is better equipped to deal with molecular biomarker data than Elastic net. The Sensitivity and Specificity in Model B with Random Forest were more balanced compared to Elastic Net, indicating that non-linear relationships and interaction are at play in this data. 
+
+---
+
+### Algorithm 3 - Boosting
 
 ```{r}
 set.seed(2)
@@ -886,6 +940,8 @@ ggplot(gbm_A.fit, highlight = TRUE)
 gbm_A.fit$bestTune
 ```
 
+The tuning process for Model A identified an optimal tune of 2,000 trees with a shrinkage of 0.003 and an interaction depth of 2.
+
 ```{r}
 # Model B
 set.seed(2)
@@ -913,108 +969,194 @@ ggplot(gbm_B.fit, highlight = TRUE)
 gbm_B.fit$bestTune
 ```
 
+The tuning process for Model B identified an optimal tune of 1,000 trees with a shrinkage of 0.005 and an interaction depth of 3.
+
+
 ```{r}
-## variable importance for Boosting Model A
-summary(gbm_A.fit$finalModel,
-        las = 2,
-        cBars = ncol(train_A) - 1,
-        cex.names = 0.6)
+# variable importance for Boosting Model A
+imp_A_gbm <- caret::varImp(gbm_A.fit)$importance %>%
+  rownames_to_column(var = "Variable") %>%
+  rename(Importance = Overall) %>%
+  mutate(Model = "Model A: Clinical Only")
 
-## variable importance for Boosting Model B
+# variable importance for Boosting Model B
+imp_B_gbm <- caret::varImp(gbm_B.fit)$importance %>%
+  rownames_to_column(var = "Variable") %>%
+  rename(Importance = Overall) %>%
+  mutate(Model = "Model B: Clinical + Biomarkers")
 
-summary(gbm_B.fit$finalModel,
-        las = 2,
-        cBars = ncol(train_B) - 1,
-        cex.names = 0.6)
+# Extracting Variable importance for both models to plot them together
+combined_imp_gbm <- bind_rows(imp_A_gbm, imp_B_gbm)
+
+# Creating faceted plot
+ggplot(combined_imp_gbm, aes(x = reorder(Variable, Importance), y = Importance, fill = Model)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  facet_wrap(~Model, scales = "free_y") +
+  labs(
+    title = "Comparison of Variable Importance (Boosting)",
+    x = "Predictors",
+    y = "Relative Influence Score",
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("steelblue", "darkorange"))
+```
+
+This plot shows the variable importance of the boosting algorithm. For model A, age, treatment intensity nd a high grade were the most important predictors. In model B, age and treatment intensity are also the top 2 contributors but the third is a molecular biomarker (IDH-wildtype) predictor. This indicates that IDH-wildtype is a major predictor of being assessed as high-risk. This biomarker outranked both grade and stage in its contribution to predicting high-risk patients
+
+```{r}
+## Evaluation on Training Data (Model A)
+gbm_A_train_prob <- predict(gbm_A.fit, newdata = train_A, type = "prob")[, "HighRisk"]
+gbm_A_train_pred <- predict(gbm_A.fit, newdata = train_A)
+
+# Training Confusion Matrix
+confusionMatrix(gbm_A_train_pred, train_A$high_risk)
+
+# Training ROC/AUC
+roc_gbm_A_train <- roc(train_A$high_risk, gbm_A_train_prob)
+roc_gbm_A_train$auc
 ```
 
 ```{r}
-## test performance for Boosting
-gbm_A.prob <- predict(gbm_A.fit, newdata = test_A, type = "prob")[, "HighRisk"]
-gbm_A.pred <- predict(gbm_A.fit, newdata = test_A)
+## Evaluation on Training Data (Model B - WITH Biomarkers)
+gbm_B_train_prob <- predict(gbm_B.fit, newdata = train_B, type = "prob")[, "HighRisk"]
+gbm_B_train_pred <- predict(gbm_B.fit, newdata = train_B)
 
-confusionMatrix(gbm_A.pred, test_A$high_risk)
+# Training Confusion Matrix
+confusionMatrix(gbm_B_train_pred, train_B$high_risk)
 
-roc.gbm_A <- roc(test_A$high_risk, gbm_A.prob)
-roc.gbm_A$auc
-
-mean(gbm_A.pred != test_A$high_risk)
-
-
-gbm_B.prob <- predict(gbm_B.fit, newdata = test_B, type = "prob")[, "HighRisk"]
-gbm_B.pred <- predict(gbm_B.fit, newdata = test_B)
-
-confusionMatrix(gbm_B.pred, test_B$high_risk)
-
-roc.gbm_B <- roc(test_B$high_risk, gbm_B.prob)
-roc.gbm_B$auc
-
-mean(gbm_B.pred != test_B$high_risk)
+# Training ROC/AUC
+roc_gbm_B_train <- roc(train_B$high_risk, gbm_B_train_prob)
+roc_gbm_B_train$auc
 ```
 
-## Compare all 3
+
+Model A:
+$AUC = 0.764$
+$Sensitivity = 0.733$        
+$Specificity = 0.636$
+
+Model B:
+$AUC = 0.778$
+$Sensitivity = 0.737$         
+$Specificity = 0.649$
+
+Similar to the above algorithms, Model B outperformed Model A in AUC but the AUC for model B was lower than in the Random Forest model. However, in comparison to the above models where model B had a worse Specificity, with boosting, Model B has a higher performance for all three metrics (AUC, Sensitivity and Specificity).
+
+---
+
+### Summary of Model compairison 
+
 
 ```{r}
-## compare all models
-model_results <- data.frame(
-  Approach = c(
-    "Regularized Logistic Regression",
-    "Regularized Logistic Regression",
-    "Random Forest",
-    "Random Forest",
-    "Boosting",
-    "Boosting"
-  ),
-  Model = c(
-    "Model A: Clinical Only",
-    "Model B: Clinical + Biomarkers",
-    "Model A: Clinical Only",
-    "Model B: Clinical + Biomarkers",
-    "Model A: Clinical Only",
-    "Model B: Clinical + Biomarkers"
-  ),
-  Test_AUC = c(
-    as.numeric(roc.en_A$auc),
-    as.numeric(roc.en_B$auc),
-    as.numeric(roc.rf_A$auc),
-    as.numeric(roc.rf_B$auc),
-    as.numeric(roc.gbm_A$auc),
-    as.numeric(roc.gbm_B$auc)
-  ),
-  Test_Error = c(
-    mean(en_A.pred != test_A$high_risk),
-    mean(en_B.pred != test_B$high_risk),
-    mean(rf_A.pred != test_A$high_risk),
-    mean(rf_B.pred != test_B$high_risk),
-    mean(gbm_A.pred != test_A$high_risk),
-    mean(gbm_B.pred != test_B$high_risk)
+# Function to extract metrics for a given fit and its training data
+get_metrics <- function(fit, data, approach, model_type) {
+  # Get predictions
+  prob <- predict(fit, newdata = data, type = "prob")[, "HighRisk"]
+  pred <- predict(fit, newdata = data)
+  
+  # Calculate Metrics
+  cm <- confusionMatrix(pred, data$high_risk)
+  auc_val <- roc(data$high_risk, prob, quiet = TRUE)$auc
+  
+  # Return data frame row
+  data.frame(
+    Approach = approach,
+    Model = model_type,
+    Training_AUC = as.numeric(auc_val),
+    Sensitivity = as.numeric(cm$byClass["Sensitivity"]),
+    Specificity = as.numeric(cm$byClass["Specificity"])
   )
+}
+
+# Creating Master Table
+internal_validation_summary <- bind_rows(
+  get_metrics(en_A.fit, train_A, "Elastic Net", "Model A: Clinical Only"),
+  get_metrics(en_B.fit, train_B, "Elastic Net", "Model B: Clinical + Biomarkers"),
+  get_metrics(rf_A.fit, train_A, "Random Forest", "Model A: Clinical Only"),
+  get_metrics(rf_B.fit, train_B, "Random Forest", "Model B: Clinical + Biomarkers"),
+  get_metrics(gbm_A.fit, train_A, "Boosting", "Model A: Clinical Only"),
+  get_metrics(gbm_B.fit, train_B, "Boosting", "Model B: Clinical + Biomarkers")
 )
 
-model_results
+# View the table
+internal_validation_summary %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  knitr::kable(caption = "Internal Validation: Training Set Performance Across All Architectures")
 ```
+
+
+Based on this internal comparison, the Random Forest algorithm performed the best as it had the highest AUC for both Model A & B. While Boosting had a more balanced Sensitivity and Specificity, the lower AUC and sensitivity across the board makes it weaker from a clinical perspective where missing true positives can be extremely consequential. 
+
+---
+
+## Final Test Set Evaluation: Random Forest Champion Model on Test Set
+```{r}
+# Generating Test Predictions and Confusion Matrices
+rf_A_test_prob <- predict(rf_A.fit, newdata = test_A, type = "prob")[, "HighRisk"]
+rf_A_test_pred <- predict(rf_A.fit, newdata = test_A)
+cm_rf_A <- confusionMatrix(rf_A_test_pred, test_A$high_risk)
+
+rf_B_test_prob <- predict(rf_B.fit, newdata = test_B, type = "prob")[, "HighRisk"]
+rf_B_test_pred <- predict(rf_B.fit, newdata = test_B)
+cm_rf_B <- confusionMatrix(rf_B_test_pred, test_B$high_risk)
+
+roc_rf_A_test <- roc(test_A$high_risk, rf_A_test_prob, quiet = TRUE)
+roc_rf_B_test <- roc(test_B$high_risk, rf_B_test_prob, quiet = TRUE)
+
+
+final_rf_test_results <- data.frame(
+  Model = c("Model A: Clinical Only", "Model B: Clinical + Biomarkers"),
+  Test_AUC = c(as.numeric(roc_rf_A_test$auc), as.numeric(roc_rf_B_test$auc)),
+  Sensitivity = c(cm_rf_A$byClass["Sensitivity"], cm_rf_B$byClass["Sensitivity"]),
+  Specificity = c(cm_rf_A$byClass["Specificity"], cm_rf_B$byClass["Specificity"]),
+  Test_Error = c(mean(rf_A_test_pred != test_A$high_risk), mean(rf_B_test_pred != test_B$high_risk))
+)
+
+final_rf_test_results %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  knitr::kable(caption = "Final Results: Random Forest Performance on Test Set")
+```
+
+## Plotting ROC curve for Model A and Model B comparison on Test Set using Random Forest
 
 ```{r}
-## ROC curves for Model A
+roc_list <- list("Model A: Clinical Only" = roc_rf_A_test, 
+                 "Model B: Clinical + Biomarkers" = roc_rf_B_test)
 
-plot(roc.en_A, legacy.axes = TRUE)
-plot(roc.rf_A, add = TRUE)
-plot(roc.gbm_A, add = TRUE)
-
-legend("bottomright",
-       legend = c("Ridge / Elastic Net", "Random Forest", "Boosting"),
-       lwd = 2)
+ggroc(roc_list, legacy.axes = TRUE, size = 1.2) +
+  facet_wrap(~name) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_manual(values = c("steelblue", "darkorange")) +
+  theme_minimal() +
+  labs(title = "Final Model Performance Comparison (Test Set)",
+       x = "False Positive Rate (1 - Specificity)",
+       y = "True Positive Rate (Sensitivity)",
+       color = "Model Version") +
+  theme(legend.position = "none", 
+        strip.text = element_text(face = "bold", size = 11))
 ```
 
-```{r}
-## ROC curves for Model B
+The final evaluation results differed from the previous comparisons between Model A & Model B. While Model B outperformed Model A in internal validations, Model A achieved a higher AUC on the test set for Rnadom Forest. This suggests overfitting from the molecular biomarkers to the training data. However, Model B did exhibit a higher sensitivity, suggesting that Model B is better at predicting true positives. In a clinical setting, this increased capacity to identify high-risk patients is an advantage over model A. 
+The ROC curve was plotted for Random Forest to illustrate the balance between sensitivity and specificity of a non-linear model that allows for complex interactions between features. 
 
-plot(roc.en_B, legacy.axes = TRUE)
-plot(roc.rf_B, add = TRUE)
-plot(roc.gbm_B, add = TRUE)
+---
 
-legend("bottomright",
-       legend = c("Ridge / Elastic Net", "Random Forest", "Boosting"),
-       lwd = 2)
-```
+### Limitations & Ethical Considerations
+
+While our models generally showed that incorporating molecular biomarkers improves predictive power, several limitations and ethical considerations should be noted. A main limitation is the inclusion of the Treatment Intensity Index, which may introduce post-treatment bias. While treatment intensity is a strong predictor of survival, it is also informed by diagnosis and molecular profile. We chose to retain this variable to maximize the model's accuracy, while acknowledging that it may partially mediate the relationship between molecular biomarkers and 1-year mortality. Additionally, brain cancer is a particularly rare outcome in the grande scheme of all cancer diagnoses and with short term availability of biomarker data (2018 and onward), the sample size is relatively small leading to the possibility of overfitting to our specific cohort. This may have implications on the generalizability of these models. 
+
+The primary ethical concern arises from the risk of applying an imperfect model in a clinical setting with very high-stakes. 
+As is, the performance metrics are still too low to be used confidently in a real world setting for such a deadly disease.Having false negatives in such a high stakes assessment of risk is extremely dangerous. Brain cancers develop rapidly and a delay in treatment due to the model missing a high-risk case could have serious implications. False positives are also harmful and may cause the patient and their family extreme stress. Another issue is that the treatment intensity index created may be subject to confounding by socioeconomic status since treatment is typically tied to insurance and income. This would likely negatively impact the models performance in lower-income populations.
+ 
+
+---
+
+### Conclusion
+
+In conclusion, the models with molecular biomarkers outperformed those without for every algorithm assessed internally. However, when exposed to the testing set, the opposite occured likely due to overfitting to the training set. This analysis demonstrated that the inclusion of molecular biomarkers improves the sensitivity of model prediction in identifying high-risk patients but the models did not have strong generalizability. 
+Future research should explore the addition of more variables to improve model performance and strengthen our ability to consistently predict high-risk patients. Studies should also run subgroup analyses to evaluate how these models perform on various underserved populations.
+
+
+
 
